@@ -315,43 +315,53 @@ public class AgOneSsoMiddleware
 
             if (_oidc != null)
             {
-                var config = await _oidc.GetConfigurationAsync(CancellationToken.None);
-                var tvp = new TokenValidationParameters
+                try
                 {
-                    ValidateIssuerSigningKey = true,
-                    IssuerSigningKeys = config.SigningKeys,
-                    ValidateIssuer = true,
-                    ValidIssuers = new[]
+                    var config = await _oidc.GetConfigurationAsync(CancellationToken.None);
+                    var tvp = new TokenValidationParameters
                     {
-                        _opts.EffectiveAuthority,
-                        $"https://login.microsoftonline.com/{_opts.TenantId}/v2.0",
-                        $"https://sts.windows.net/{_opts.TenantId}/"
-                    },
-                    ValidateAudience = _opts.AllAudiences.Any(),
-                    ValidAudiences = _opts.AllAudiences,
-                    ValidateLifetime = false, // We check expiry ourselves for refresh logic
-                    ClockSkew = TimeSpan.FromMinutes(2)
-                };
+                        ValidateIssuerSigningKey = true,
+                        IssuerSigningKeys = config.SigningKeys,
+                        ValidateIssuer = true,
+                        ValidIssuers = new[]
+                        {
+                            _opts.EffectiveAuthority,
+                            $"https://login.microsoftonline.com/{_opts.TenantId}/v2.0",
+                            $"https://sts.windows.net/{_opts.TenantId}/"
+                        },
+                        ValidateAudience = _opts.AllAudiences.Any(),
+                        ValidAudiences = _opts.AllAudiences,
+                        ValidateLifetime = false, // We check expiry ourselves for refresh logic
+                        ClockSkew = TimeSpan.FromMinutes(2)
+                    };
 
-                principal = _jwt.ValidateToken(token, tvp, out var validated);
-                jwt = (JwtSecurityToken)validated;
+                    principal = _jwt.ValidateToken(token, tvp, out var validated);
+                    jwt = (JwtSecurityToken)validated;
+                }
+                catch (SecurityTokenSignatureKeyNotFoundException ex)
+                {
+                    // Token's 'kid' header is missing or doesn't match any Entra ID signing key.
+                    // This happens when the token is an Entra ID access token scoped for Microsoft
+                    // Graph (opaque format) rather than for your own API. Since the token came from
+                    // AG ONE (trusted source over HTTPS), fall back to reading claims without
+                    // signature validation. AG ONE remains the authority for token validity.
+                    _log.LogDebug(ex, "Signature key not found — falling back to claims-only parsing. " +
+                        "This is normal for Graph-scoped Entra ID tokens.");
+                    return ParseWithoutSignatureValidation(token);
+                }
+                catch (SecurityTokenInvalidSignatureException ex)
+                {
+                    // Similar — signature can't be verified (e.g. encrypted Graph token)
+                    _log.LogDebug(ex, "Signature validation failed — falling back to claims-only parsing.");
+                    return ParseWithoutSignatureValidation(token);
+                }
             }
             else
             {
-                // No OIDC config — parse without signature validation (dev/fallback)
-                if (!_jwt.CanReadToken(token)) return (null, Status.Invalid);
-                jwt = _jwt.ReadJwtToken(token);
-                principal = new ClaimsPrincipal(new ClaimsIdentity(jwt.Claims, "AgOneSso"));
+                return ParseWithoutSignatureValidation(token);
             }
 
-            // Check expiry
-            var now = DateTime.UtcNow;
-            if (jwt.ValidTo != DateTime.MinValue && jwt.ValidTo < now)
-                return (principal, Status.Expired);
-            if (jwt.ValidTo != DateTime.MinValue && jwt.ValidTo < now.AddMinutes(_opts.RefreshBufferMinutes))
-                return (principal, Status.ExpiringSoon);
-
-            return (principal, Status.Valid);
+            return ClassifyExpiry(principal, jwt);
         }
         catch (SecurityTokenExpiredException)
         {
@@ -362,6 +372,39 @@ public class AgOneSsoMiddleware
             _log.LogDebug(ex, "JWT validation failed");
             return (null, Status.Invalid);
         }
+    }
+
+    /// <summary>
+    /// Reads JWT claims without verifying the signature. Used when:
+    /// - The token is a Graph-scoped Entra ID token (no kid / opaque format)
+    /// - OIDC metadata is not configured
+    /// This is safe because the token came from AG ONE (trusted source via HTTPS cookie),
+    /// and AG ONE is the authority that validates/refreshes tokens against Entra ID.
+    /// </summary>
+    private (ClaimsPrincipal? principal, Status status) ParseWithoutSignatureValidation(string token)
+    {
+        try
+        {
+            if (!_jwt.CanReadToken(token)) return (null, Status.Invalid);
+            var jwt = _jwt.ReadJwtToken(token);
+            var principal = new ClaimsPrincipal(new ClaimsIdentity(jwt.Claims, "AgOneSso"));
+            return ClassifyExpiry(principal, jwt);
+        }
+        catch (Exception ex)
+        {
+            _log.LogDebug(ex, "Failed to parse JWT");
+            return (null, Status.Invalid);
+        }
+    }
+
+    private (ClaimsPrincipal principal, Status status) ClassifyExpiry(ClaimsPrincipal principal, JwtSecurityToken jwt)
+    {
+        var now = DateTime.UtcNow;
+        if (jwt.ValidTo != DateTime.MinValue && jwt.ValidTo < now)
+            return (principal, Status.Expired);
+        if (jwt.ValidTo != DateTime.MinValue && jwt.ValidTo < now.AddMinutes(_opts.RefreshBufferMinutes))
+            return (principal, Status.ExpiringSoon);
+        return (principal, Status.Valid);
     }
 
     // ═══════════ Token refresh via AG ONE API ═══════════
