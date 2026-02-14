@@ -413,25 +413,67 @@ public class AgOneSsoMiddleware
     {
         if (_opts.IsAgOneGateway) return null; // AG ONE doesn't call itself
 
+        var endpoint = _opts.TokenValidateEndpoint.TrimStart('/');
+        var fullUrl = $"{_opts.AgOneBaseUrl.TrimEnd('/')}/{endpoint}";
+
         try
         {
-            var client = ctx.RequestServices.GetRequiredService<IHttpClientFactory>().CreateClient("AgOneSso");
+            var factory = ctx.RequestServices.GetService<IHttpClientFactory>();
+            if (factory == null)
+            {
+                _log.LogError("IHttpClientFactory not registered. Did you call builder.Services.AddAgOneSso()?");
+                return null;
+            }
+
+            var client = factory.CreateClient("AgOneSso");
+
+            _log.LogInformation("Calling AG ONE token refresh: POST {Url}", fullUrl);
+
             var resp = await client.PostAsJsonAsync(
-                _opts.TokenValidateEndpoint.TrimStart('/'),
+                endpoint,
                 new SsoTokenRequest { Token = currentToken },
                 ctx.RequestAborted);
 
-            if (!resp.IsSuccessStatusCode) return null;
+            if (!resp.IsSuccessStatusCode)
+            {
+                var errorBody = await resp.Content.ReadAsStringAsync(ctx.RequestAborted);
+                _log.LogWarning("AG ONE token refresh returned {StatusCode}: {Body}", resp.StatusCode, errorBody);
+                return null;
+            }
 
             var body = await resp.Content.ReadAsStringAsync(ctx.RequestAborted);
             var result = JsonSerializer.Deserialize<SsoTokenResponse>(body,
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
-            return result?.Token; // null if validation failed on AG ONE side
+            if (!string.IsNullOrEmpty(result?.Token))
+            {
+                _log.LogInformation("AG ONE token refresh succeeded");
+            }
+            else
+            {
+                _log.LogWarning("AG ONE returned no token: {Body}", body);
+            }
+
+            return result?.Token;
+        }
+        catch (HttpRequestException ex)
+        {
+            // This catches: SSL errors, connection refused, DNS failures, timeouts
+            _log.LogError(ex,
+                "AG ONE token refresh FAILED — cannot connect to {Url}. " +
+                "Check that: 1) AG ONE is running, 2) AgOneBaseUrl '{BaseUrl}' is correct, " +
+                "3) The URL is reachable from this server. Inner error: {Message}",
+                fullUrl, _opts.AgOneBaseUrl, ex.InnerException?.Message ?? ex.Message);
+            return null;
+        }
+        catch (TaskCanceledException ex) when (!ctx.RequestAborted.IsCancellationRequested)
+        {
+            _log.LogError(ex, "AG ONE token refresh TIMED OUT calling {Url}", fullUrl);
+            return null;
         }
         catch (Exception ex)
         {
-            _log.LogWarning(ex, "AG ONE token refresh failed");
+            _log.LogWarning(ex, "AG ONE token refresh failed calling {Url}", fullUrl);
             return null;
         }
     }
@@ -559,6 +601,13 @@ public static class AgOneSsoExtensions
                 c.BaseAddress = new Uri(opts.AgOneBaseUrl.TrimEnd('/') + "/");
                 c.Timeout = TimeSpan.FromSeconds(30);
                 c.DefaultRequestHeaders.Add("Accept", "application/json");
+            })
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+            {
+                // Trust AG ONE's SSL certificate (required in local dev when AG ONE
+                // runs on localhost with a self-signed/dev certificate)
+                ServerCertificateCustomValidationCallback =
+                    HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
             });
         }
 
