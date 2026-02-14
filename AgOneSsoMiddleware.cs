@@ -67,7 +67,18 @@ public class AgOneSsoOptions
     public bool IsAgOneGateway { get; set; } = false;
     public bool AcceptTokenFromQueryString { get; set; } = true;
     public string TokenQueryParameterName { get; set; } = "token";
+
+    /// <summary>Paths that skip the middleware entirely (no token check at all).</summary>
     public List<string> AnonymousPaths { get; set; } = new();
+
+    /// <summary>
+    /// Paths that are publicly accessible but WILL set the user if a token exists.
+    /// - No token → page loads as anonymous (no redirect, no 401)
+    /// - Has token → validates it, sets User so page can show "Welcome, John"
+    /// Use this for home pages, landing pages, marketing pages, etc.
+    /// Example: ["/", "/about", "/pricing"]
+    /// </summary>
+    public List<string> PublicPaths { get; set; } = new();
 
     // ── Internal helpers ──
     internal string EffectiveLoginUrl =>
@@ -175,22 +186,32 @@ public class AgOneSsoMiddleware
             return;
         }
 
-        // ── 2. Extract token (header → session cookie → launch cookie → query) ──
+        // ── 2. Check if this is a public path (accessible without login) ──
+        var isPublicPath = IsPublicPath(path);
+
+        // ── 3. Extract token (header → session cookie → query) ──
         var (token, source) = ExtractToken(ctx);
 
         if (string.IsNullOrEmpty(token))
         {
+            if (isPublicPath)
+            {
+                // Public path, no token → just continue as anonymous (no redirect)
+                await _next(ctx);
+                return;
+            }
+
             await Reject(ctx, "No authentication token found");
             return;
         }
 
-        // ── 3. Validate JWT ──
+        // ── 4. Validate JWT ──
         var (principal, status) = await ValidateAsync(token);
         var activeToken = token;
 
         if (status == Status.ExpiringSoon)
         {
-            // Still valid but expiring — try proactive refresh in background
+            // Still valid but expiring — try proactive refresh
             var refreshed = await RefreshAsync(ctx, token);
             if (!string.IsNullOrEmpty(refreshed))
             {
@@ -209,17 +230,30 @@ public class AgOneSsoMiddleware
                 activeToken = refreshed;
                 var (p2, s2) = await ValidateAsync(refreshed);
                 if (p2 != null) principal = p2;
-                else { await Reject(ctx, "Refreshed token is invalid"); return; }
+                else if (!isPublicPath) { await Reject(ctx, "Refreshed token is invalid"); return; }
+                else { await _next(ctx); return; } // public path — continue as anonymous
+            }
+            else if (!isPublicPath)
+            {
+                await Reject(ctx, "Token expired and refresh failed");
+                return;
             }
             else
             {
-                await Reject(ctx, "Token expired and refresh failed");
+                // Public path, expired token, refresh failed → continue as anonymous
+                await _next(ctx);
                 return;
             }
         }
         else if (status == Status.Invalid)
         {
-            await Reject(ctx, "Invalid token");
+            if (!isPublicPath)
+            {
+                await Reject(ctx, "Invalid token");
+                return;
+            }
+            // Public path with invalid token → continue as anonymous
+            await _next(ctx);
             return;
         }
 
@@ -409,6 +443,18 @@ public class AgOneSsoMiddleware
         var ext = Path.GetExtension(path);
         if (!string.IsNullOrEmpty(ext) && StaticExtensions.Contains(ext)) return true;
 
+        return false;
+    }
+
+    private bool IsPublicPath(string path)
+    {
+        foreach (var p in _opts.PublicPaths)
+        {
+            // Exact match for "/" (home page)
+            if (p == "/" && path == "/") return true;
+            // Prefix match for other paths (e.g. "/about" matches "/about" and "/about/team")
+            if (p != "/" && path.StartsWith(p, StringComparison.OrdinalIgnoreCase)) return true;
+        }
         return false;
     }
 
@@ -636,6 +682,7 @@ public static class AgOneSsoExtensions
 //        "ClientId": "YOUR-ENTRA-CLIENT-ID",
 //        "ValidAudience": "api://YOUR-ENTRA-CLIENT-ID",
 //        "IsAgOneGateway": true,
+//        "PublicPaths": ["/"],
 //        "AnonymousPaths": [
 //          "/login",
 //          "/api/auth/login",
