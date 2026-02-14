@@ -2,52 +2,78 @@
 
 **One file. Copy-paste. Done.**
 
-A single self-contained middleware file (`AgOneSsoMiddleware.cs`) that handles SSO authentication across all AG ONE products (Blazor WebAssembly + .NET 8 backend).
+---
+
+## The Full Flow
+
+```
+User clicks "Launch AGOneWork" in AG ONE
+        │
+        ▼
+AG ONE ProductLaunchController redirects browser to:
+  https://agonework.example.com?token=eyJhbG...
+        │
+        ▼
+Browser hits AGOneWork → Middleware runs:
+  1. Sees ?token=xxx in URL
+  2. Validates JWT (Entra ID signature + expiry)
+  3. Sets HttpOnly cookie (agone_sso_token) on agonework.example.com
+  4. Redirects to clean URL: https://agonework.example.com
+        │
+        ▼
+All subsequent requests send cookie automatically
+        │
+        ├─ Token valid           → Set User, continue
+        ├─ Token expiring soon   → Call AG ONE API to refresh, update cookie
+        ├─ Token expired         → Call AG ONE API → success? continue : redirect to AG ONE login
+        └─ No token / invalid    → API call? 401 : redirect to AG ONE login
+```
 
 ---
 
-## How It Works
+## What to Change in AG ONE
 
+**Only one change:** simplify `ProductLaunchController.Launch()` to just redirect with the token in the query string (instead of setting a cookie that can't cross domains):
+
+```csharp
+[HttpGet("launch/{productCode}")]
+[AllowAnonymous]
+public IActionResult Launch(string productCode, [FromQuery] string token)
+{
+    var launchUrl = _configuration[$"ProductLaunchUrls:{productCode}"];
+    if (string.IsNullOrEmpty(launchUrl))
+        return NotFound(new { message = $"Product '{productCode}' not found." });
+
+    if (string.IsNullOrEmpty(token))
+        return BadRequest(new { message = "Token is required." });
+
+    // Redirect to product with token in query string.
+    // The middleware on Product X picks it up, sets its own cookie, and cleans the URL.
+    var url = $"{launchUrl.TrimEnd('/')}?token={Uri.EscapeDataString(token)}";
+    return Redirect(url);
+}
 ```
-User clicks "Launch Product X" in AG ONE
-        │
-        ▼
-AG ONE sets cookie (agone_launch_token) → redirects to Product X
-        │
-        ▼
-Product X: Middleware picks up token from cookie
-        │
-        ├─ Valid token         → Set User, set session cookie, continue
-        ├─ Expiring soon       → Refresh via AG ONE API, update cookie, continue
-        ├─ Expired             → Refresh via AG ONE API → success? continue : redirect to login
-        ├─ Invalid / no token  → API call? 401 JSON : redirect to AG ONE login
-        └─ Static file (.js/.css/.wasm) → skip, always serve
-```
+
+**Why?** Your old code did `Response.Cookies.Append("agone_launch_token", token, ...)` then `Redirect(launchUrl)`. That cookie is set on **AG ONE's domain** — when the browser goes to Product X (a different domain), **Product X can never see that cookie**. Cookies are domain-scoped.
+
+**Everything else in AG ONE stays the same:** Entra ID login, `ValidateAndGetAccessTokenAsync`, `ProductLaunchService`, token storage in DB — no changes.
 
 ---
 
-## Setup for Product Apps (AGOneWork, AGOneLearn, etc.)
+## Setup for Product Apps (3 steps)
 
-### Step 1 — Copy the file
-
-Copy `AgOneSsoMiddleware.cs` into your Server project.
-
-### Step 2 — Install NuGet
+### 1. Copy `AgOneSsoMiddleware.cs` into your Server project + install NuGet
 
 ```bash
 dotnet add package Microsoft.IdentityModel.Protocols.OpenIdConnect
 ```
 
-### Step 3 — Program.cs (add 3 lines)
+### 2. Program.cs — add 3 lines
 
 ```csharp
-using AgOne.Sso;               // ← add this using
-
-// ... your existing builder setup ...
+using AgOne.Sso;
 
 builder.Services.AddAgOneSso(builder.Configuration);   // ← LINE 1
-
-// ... your existing app setup ...
 
 app.UseRouting();
 app.UseCors();
@@ -55,11 +81,11 @@ app.UseAgOneSso();              // ← LINE 2 (after routing, before auth)
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapAgOneSsoEndpoints();     // ← LINE 3 (maps /api/auth/sso-user-info & sso-logout)
+app.MapAgOneSsoEndpoints();     // ← LINE 3
 app.MapFallbackToFile("index.html");
 ```
 
-### Step 4 — appsettings.json
+### 3. appsettings.json
 
 ```json
 {
@@ -74,13 +100,11 @@ app.MapFallbackToFile("index.html");
 }
 ```
 
-**That's it. Product app is SSO-enabled.**
-
 ---
 
-## Setup for AG ONE Gateway (the central product)
+## Setup for AG ONE Itself (optional)
 
-Same file, same 3 lines. Only the config changes:
+Same file, same 3 lines. Config:
 
 ```json
 {
@@ -102,18 +126,14 @@ Same file, same 3 lines. Only the config changes:
 }
 ```
 
-Key difference: `IsAgOneGateway: true` means the middleware won't call any external refresh API — AG ONE handles its own token refresh internally.
-
-**Nothing changes in your existing AG ONE Entra ID login, token storage, or Product Launcher code.** The middleware just sits in front and protects routes.
-
 ---
 
-## Blazor WASM Client Setup (all products)
+## Blazor WASM Client (all products)
 
-Add this small class to your **WASM Client** project:
+Add this class to your WASM project:
 
 ```csharp
-// CookieHandler.cs (in your WASM Client project)
+// CookieHandler.cs
 using Microsoft.AspNetCore.Components.WebAssembly.Http;
 
 public class CookieHandler : DelegatingHandler
@@ -127,7 +147,7 @@ public class CookieHandler : DelegatingHandler
 }
 ```
 
-Then in WASM `Program.cs`:
+Wire it up in WASM `Program.cs`:
 
 ```csharp
 builder.Services.AddTransient<CookieHandler>();
@@ -137,70 +157,3 @@ builder.Services.AddHttpClient("Backend",
 builder.Services.AddScoped(sp =>
     sp.GetRequiredService<IHttpClientFactory>().CreateClient("Backend"));
 ```
-
-This ensures cookies are sent with every HTTP request from the browser.
-
----
-
-## What AG ONE Needs (you already have this)
-
-The middleware calls your existing AG ONE endpoint to refresh expired tokens:
-
-```
-POST /api/auth/external/validate
-Body: { "token": "expired-access-token" }
-Response: { "token": "new-valid-access-token" }
-```
-
-This is your existing `ValidateAndGetAccessTokenAsync` method — **no changes needed**.
-
-Your existing Product Launcher that sets `agone_launch_token` cookie and redirects — **no changes needed**.
-
----
-
-## All Scenarios Handled
-
-| Scenario | What Happens |
-|----------|-------------|
-| Launch from AG ONE Product Launcher | Token from launch cookie → validated → session cookie set |
-| Subsequent page loads | Token from session cookie → validated |
-| Blazor WASM API calls | Cookie sent automatically (via CookieHandler) |
-| Token valid & fresh | User identity set, request continues |
-| Token expiring within 5 min | Proactive refresh via AG ONE API |
-| Token expired | Refresh via AG ONE → if fails → redirect to login |
-| No token / direct URL access | Redirect to AG ONE login (with returnUrl) |
-| API call without token | 401 JSON response |
-| Static files (.js, .css, .wasm, .dll) | Always served, no auth check |
-| Blazor framework / SignalR | Always served, no auth check |
-| Token in query string (?token=xxx) | Accepted, cookie set, redirected to clean URL |
-| Invalid / tampered JWT | Rejected, redirect to login |
-| AG ONE gateway mode | Same middleware, no external refresh calls |
-
----
-
-## Configuration Reference
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `AgOneBaseUrl` | *(required)* | AG ONE API base URL |
-| `AgOneLoginUrl` | `AgOneBaseUrl` | Login page for redirects |
-| `TenantId` | *(required)* | Entra ID Tenant ID |
-| `ClientId` | *(required)* | Entra ID Client ID |
-| `ValidAudience` | `ClientId` | Expected JWT audience |
-| `IsAgOneGateway` | `false` | Set `true` for AG ONE itself |
-| `AnonymousPaths` | `[]` | Paths that skip auth |
-| `SessionCookieName` | `agone_sso_token` | Session cookie name |
-| `LaunchCookieName` | `agone_launch_token` | Launch cookie name |
-| `SessionCookieLifetime` | `60 min` | How long session cookie lasts |
-| `RefreshBufferMinutes` | `5` | Minutes before expiry to refresh |
-| `CookieDomain` | *(auto)* | Shared domain for cookies |
-| `CookieSameSite` | `None` | SameSite cookie policy |
-
----
-
-## API Endpoints (auto-mapped)
-
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/api/auth/sso-user-info` | GET | Returns current user claims (for Blazor WASM) |
-| `/api/auth/sso-logout` | POST | Clears SSO cookies |

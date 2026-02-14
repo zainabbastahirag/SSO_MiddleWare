@@ -58,7 +58,6 @@ public class AgOneSsoOptions
 
     // ── Cookies ──
     public string SessionCookieName { get; set; } = "agone_sso_token";
-    public string LaunchCookieName { get; set; } = "agone_launch_token";
     public TimeSpan SessionCookieLifetime { get; set; } = TimeSpan.FromMinutes(60);
     public string? CookieDomain { get; set; }
     public SameSiteMode CookieSameSite { get; set; } = SameSiteMode.None;
@@ -230,14 +229,10 @@ public class AgOneSsoMiddleware
         // ── 5. Set/refresh session cookie ──
         SetSessionCookie(ctx, activeToken);
 
-        // ── 6. Clean up launch sources ──
-        if (source == Src.Launch)
-            ctx.Response.Cookies.Delete(_opts.LaunchCookieName,
-                new CookieOptions { Path = "/", Secure = true, SameSite = SameSiteMode.None });
-
+        // ── 6. If token came from query string, redirect to clean URL ──
+        //       (removes token from address bar so it's not in browser history)
         if (source == Src.Query)
         {
-            // Redirect to clean URL (remove token from address bar)
             var clean = CleanQueryString(ctx);
             ctx.Response.Redirect(clean);
             return;
@@ -248,11 +243,11 @@ public class AgOneSsoMiddleware
 
     // ═══════════ Token extraction ═══════════
 
-    private enum Src { None, Header, Session, Launch, Query }
+    private enum Src { None, Header, Session, Query }
 
     private (string? token, Src source) ExtractToken(HttpContext ctx)
     {
-        // 1. Authorization: Bearer xxx
+        // 1. Authorization: Bearer xxx  (Blazor WASM API calls)
         var auth = ctx.Request.Headers.Authorization.FirstOrDefault();
         if (auth?.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) == true)
         {
@@ -260,15 +255,11 @@ public class AgOneSsoMiddleware
             if (!string.IsNullOrEmpty(t)) return (t, Src.Header);
         }
 
-        // 2. Session cookie
+        // 2. Session cookie  (subsequent requests after first launch)
         if (ctx.Request.Cookies.TryGetValue(_opts.SessionCookieName, out var sc) && !string.IsNullOrEmpty(sc))
             return (sc, Src.Session);
 
-        // 3. Launch cookie (set by AG ONE Product Launcher)
-        if (ctx.Request.Cookies.TryGetValue(_opts.LaunchCookieName, out var lc) && !string.IsNullOrEmpty(lc))
-            return (lc, Src.Launch);
-
-        // 4. Query string ?token=xxx
+        // 3. Query string ?token=xxx  (first request — AG ONE Product Launcher redirects here)
         if (_opts.AcceptTokenFromQueryString &&
             ctx.Request.Query.TryGetValue(_opts.TokenQueryParameterName, out var qt) &&
             !string.IsNullOrEmpty(qt.FirstOrDefault()))
@@ -526,12 +517,11 @@ public static class AgOneSsoExtensions
             });
         });
 
-        // POST /api/auth/sso-logout — clears SSO cookies
+        // POST /api/auth/sso-logout — clears SSO cookie
         endpoints.MapPost($"{p}/sso-logout", (HttpContext ctx, IOptions<AgOneSsoOptions> opts) =>
         {
             var o = opts.Value;
             ctx.Response.Cookies.Delete(o.SessionCookieName, new CookieOptions { Path = "/", Secure = true, SameSite = o.CookieSameSite });
-            ctx.Response.Cookies.Delete(o.LaunchCookieName, new CookieOptions { Path = "/", Secure = true, SameSite = SameSiteMode.None });
             return Results.Ok(new { loggedOut = true, redirectUrl = o.EffectiveLoginUrl });
         });
 
@@ -541,11 +531,62 @@ public static class AgOneSsoExtensions
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //
-// SETUP INSTRUCTIONS
+// HOW THE FULL FLOW WORKS
 //
 // ═══════════════════════════════════════════════════════════════════════════════
 //
-// ── FOR EVERY PRODUCT (AGOneWork, AGOneLearn, etc.) ──────────────────────────
+//   1. User is logged into AG ONE (Entra ID). Token stored in DB + local storage.
+//   2. User clicks "Launch AGOneWork" in AG ONE.
+//   3. AG ONE's ProductLaunchController redirects browser to:
+//        https://agonework.example.com?token=eyJhbG...
+//   4. Browser hits AGOneWork. This middleware runs:
+//        a. Sees ?token=xxx in the URL
+//        b. Validates the JWT (signature + expiry)
+//        c. Sets HttpOnly session cookie (agone_sso_token) on agonework.example.com
+//        d. Redirects to clean URL: https://agonework.example.com (no token in address bar)
+//   5. All subsequent requests from AGOneWork send the session cookie automatically.
+//   6. When the token is about to expire, middleware calls AG ONE's
+//      POST /api/auth/external/validate to get a refreshed token.
+//   7. If refresh fails → redirect user back to AG ONE login.
+//
+//
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// WHAT TO CHANGE IN AG ONE (ProductLaunchController)
+//
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// Your existing Product Launcher sets a cookie and redirects. The problem is
+// that cookie is on AG ONE's domain — Product X on a different domain can't
+// read it. Replace it with a simple query-string redirect:
+//
+//   [HttpGet("launch/{productCode}")]
+//   [AllowAnonymous]
+//   public IActionResult Launch(string productCode, [FromQuery] string token)
+//   {
+//       var launchUrl = _configuration[$"ProductLaunchUrls:{productCode}"];
+//       if (string.IsNullOrEmpty(launchUrl))
+//           return NotFound(new { message = $"Product '{productCode}' not found." });
+//
+//       if (string.IsNullOrEmpty(token))
+//           return BadRequest(new { message = "Token is required." });
+//
+//       // Just redirect to the product with token in query string.
+//       // The middleware on Product X will pick it up, set a cookie on
+//       // Product X's own domain, and redirect to a clean URL.
+//       var url = $"{launchUrl.TrimEnd('/')}?token={Uri.EscapeDataString(token)}";
+//       return Redirect(url);
+//   }
+//
+// That's all AG ONE needs to change. Your existing ValidateAndGetAccessTokenAsync,
+// Entra ID login, token storage — all stays exactly as-is.
+//
+//
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// SETUP FOR PRODUCT APPS (AGOneWork, AGOneLearn, etc.)
+//
+// ═══════════════════════════════════════════════════════════════════════════════
 //
 // 1. Copy this file into your Server project
 //
@@ -579,7 +620,11 @@ public static class AgOneSsoExtensions
 //    }
 //
 //
-// ── FOR AG ONE ITSELF ────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// SETUP FOR AG ONE ITSELF (optional — same middleware, gateway mode)
+//
+// ═══════════════════════════════════════════════════════════════════════════════
 //
 // Same file, same 3 lines in Program.cs. Only difference is appsettings.json:
 //
@@ -602,7 +647,11 @@ public static class AgOneSsoExtensions
 //    }
 //
 //
-// ── FOR BLAZOR WASM CLIENT (all products) ────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// BLAZOR WASM CLIENT (all products)
+//
+// ═══════════════════════════════════════════════════════════════════════════════
 //
 // In your WASM Client project, add this class:
 //
