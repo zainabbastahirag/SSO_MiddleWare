@@ -285,21 +285,31 @@ public class AgOneSsoMiddleware
         var auth = ctx.Request.Headers.Authorization.FirstOrDefault();
         if (auth?.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) == true)
         {
-            var t = auth["Bearer ".Length..].Trim();
+            var t = CleanToken(auth["Bearer ".Length..]);
             if (!string.IsNullOrEmpty(t)) return (t, Src.Header);
         }
 
         // 2. Session cookie  (subsequent requests after first launch)
         if (ctx.Request.Cookies.TryGetValue(_opts.SessionCookieName, out var sc) && !string.IsNullOrEmpty(sc))
-            return (sc, Src.Session);
+            return (CleanToken(sc)!, Src.Session);
 
         // 3. Query string ?token=xxx  (first request — AG ONE Product Launcher redirects here)
         if (_opts.AcceptTokenFromQueryString &&
             ctx.Request.Query.TryGetValue(_opts.TokenQueryParameterName, out var qt) &&
             !string.IsNullOrEmpty(qt.FirstOrDefault()))
-            return (qt.FirstOrDefault()!, Src.Query);
+            return (CleanToken(qt.FirstOrDefault()!)!, Src.Query);
 
         return (null, Src.None);
+    }
+
+    /// <summary>
+    /// Cleans a token string by removing surrounding quotes (Blazor LocalStorage adds these),
+    /// whitespace, newlines, and other invisible characters that break DB lookups.
+    /// </summary>
+    private static string? CleanToken(string? token)
+    {
+        if (string.IsNullOrWhiteSpace(token)) return null;
+        return token.Trim().Trim('"').Trim();
     }
 
     // ═══════════ JWT validation ═══════════
