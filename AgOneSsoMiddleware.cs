@@ -111,8 +111,10 @@ public class AgOneSsoOptions
 
 public class SsoTokenRequest
 {
-    [JsonPropertyName("token")]   public string? Token { get; set; }
-    [JsonPropertyName("idToken")] public string? IdToken { get; set; }
+    [JsonPropertyName("token")]     public string? Token { get; set; }
+    [JsonPropertyName("idToken")]   public string? IdToken { get; set; }
+    [JsonPropertyName("userId")]    public string? UserId { get; set; }
+    [JsonPropertyName("tenantId")]  public string? TenantId { get; set; }
 }
 
 public class SsoTokenResponse
@@ -437,11 +439,36 @@ public class AgOneSsoMiddleware
 
             var client = factory.CreateClient("AgOneSso");
 
-            _log.LogInformation("Calling AG ONE token refresh: POST {Url}", fullUrl);
+            // Extract userId and tenantId from the current JWT claims.
+            // The token from LocalStorage is AG ONE's custom JWT (HS256) which has
+            // sub=userId, tenant_id=tenantId. The DB stores the Entra ID token (RS256)
+            // which is a completely different string. So we send the userId so AG ONE
+            // can look up the user's Entra ID token by UserId instead of token string.
+            string? userId = null;
+            string? tenantId = null;
+            try
+            {
+                if (_jwt.CanReadToken(currentToken))
+                {
+                    var parsed = _jwt.ReadJwtToken(currentToken);
+                    userId = parsed.Claims.FirstOrDefault(c => c.Type == "sub")?.Value
+                          ?? parsed.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+                    tenantId = parsed.Claims.FirstOrDefault(c => c.Type == "tenant_id")?.Value
+                            ?? parsed.Claims.FirstOrDefault(c => c.Type == "tid")?.Value;
+                }
+            }
+            catch { /* If parsing fails, we still send the raw token */ }
+
+            _log.LogInformation("Calling AG ONE token refresh: POST {Url} (userId={UserId})", fullUrl, userId ?? "unknown");
 
             var resp = await client.PostAsJsonAsync(
                 endpoint,
-                new SsoTokenRequest { Token = currentToken },
+                new SsoTokenRequest
+                {
+                    Token = currentToken,
+                    UserId = userId,
+                    TenantId = tenantId
+                },
                 ctx.RequestAborted);
 
             if (!resp.IsSuccessStatusCode)
@@ -726,8 +753,69 @@ public static class AgOneSsoExtensions
 //       return Redirect(url);
 //   }
 //
-// That's all AG ONE needs to change. Your existing ValidateAndGetAccessTokenAsync,
-// Entra ID login, token storage — all stays exactly as-is.
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// WHAT TO CHANGE IN AG ONE (ExternalTokenValidationRequest + ValidateAndGetAccessTokenAsync)
+//
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// PROBLEM: The token in LocalStorage (custom HS256 JWT with sub=userId) is
+// completely different from the Entra ID token stored in the DB (RS256 Graph token).
+// Matching by token string will NEVER work.
+//
+// FIX: Add UserId/TenantId fields to ExternalTokenValidationRequest and look up by UserId.
+//
+// 1. Update ExternalTokenValidationRequest:
+//
+//   public class ExternalTokenValidationRequest
+//   {
+//       public string? Token { get; set; }
+//       public string? IdToken { get; set; }
+//       public string? UserId { get; set; }     // ← ADD THIS
+//       public string? TenantId { get; set; }   // ← ADD THIS
+//   }
+//
+// 2. Update ValidateAndGetAccessTokenAsync:
+//
+//   public async Task<string?> ValidateAndGetAccessTokenAsync(ExternalTokenValidationRequest request)
+//   {
+//       // 1️⃣ Look up by UserId (sent by the middleware from the custom JWT's "sub" claim)
+//       if (!string.IsNullOrEmpty(request.UserId))
+//       {
+//           var tokenByUser = await _db.UserTokens
+//               .FirstOrDefaultAsync(t => t.UserId == request.UserId && t.IsActive);
+//
+//           if (tokenByUser != null)
+//               return await EnsureValidTokenAsync(tokenByUser);
+//       }
+//
+//       // 2️⃣ Fallback: check by IdToken
+//       if (!string.IsNullOrEmpty(request.IdToken))
+//       {
+//           var cleanIdToken = request.IdToken.Trim().Trim('"').Trim();
+//           var tokenByTemp = await _db.UserTokens
+//               .FirstOrDefaultAsync(t => t.IdToken == cleanIdToken && t.IsActive);
+//
+//           if (tokenByTemp != null)
+//               return await EnsureValidTokenAsync(tokenByTemp);
+//       }
+//
+//       // 3️⃣ Fallback: check by AccessToken
+//       if (!string.IsNullOrEmpty(request.Token))
+//       {
+//           var cleanToken = request.Token.Trim().Trim('"').Trim();
+//           var tokenByAccess = await _db.UserTokens
+//               .FirstOrDefaultAsync(t => t.AccessToken == cleanToken && t.IsActive);
+//
+//           if (tokenByAccess != null)
+//               return await EnsureValidTokenAsync(tokenByAccess);
+//       }
+//
+//       return null;
+//   }
+//
+// The middleware now sends { token, userId, tenantId } in every refresh request.
+// userId comes from the "sub" claim of the custom JWT that AG ONE generated.
 //
 //
 // ═══════════════════════════════════════════════════════════════════════════════
