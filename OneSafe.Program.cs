@@ -159,29 +159,22 @@ app.Use(async (context, next) =>
 {
     context.Response.Headers["X-Frame-Options"] = "SAMEORIGIN";
 
+    // Build CSP — 'self' covers same-origin HTTP/HTTPS,
+    // but WebSocket (ws:/wss:) needs explicit entries for Blazor Server SignalR hub
     var csp =
         "default-src 'self'; " +
-        "script-src 'self' https://code.jquery.com; " +
+        "script-src 'self' 'unsafe-inline' https://code.jquery.com; " +
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
         "font-src 'self' https://fonts.gstatic.com; " +
         "img-src 'self' data:; " +
-        "connect-src 'self' ws://localhost:51310 wss://localhost:5001 wss://localhost:44359 wss://*.azurewebsites.net; " +
+        "connect-src 'self' ws: wss: wss://*.azurewebsites.net; " +
         "base-uri 'self'; " +
         "form-action 'self';";
-
-#if DEBUG
-    csp = csp.Replace(
-        "connect-src 'self' ws://localhost:51310 wss://localhost:5001 wss://localhost:44359;",
-        "connect-src 'self' http://localhost:51310 ws://localhost:51310 wss://localhost:5001 wss://localhost:44359;"
-    );
-#endif
 
     context.Response.Headers["Content-Security-Policy"] = csp;
     context.Response.Headers["X-Content-Type-Options"] = "nosniff";
     context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
     context.Response.Headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=()";
-    context.Response.Headers["Cache-Control"] = "no-store, no-cache, must-revalidate";
-    context.Response.Headers["Pragma"] = "no-cache";
 
     await next();
 });
