@@ -154,11 +154,20 @@ public class AgOneSsoMiddleware
         ".ttf", ".eot", ".map", ".br", ".gz", ".blat"
     };
 
-    // Framework paths that always pass through
+    // Framework paths that always pass through (no auth check at all)
     private static readonly string[] FrameworkPrefixes =
     {
-        "/_framework", "/_content", "/_blazor", "/_vs",
+        "/_framework", "/_content", "/_vs",
         "/css", "/js", "/images", "/fonts", "/favicon.ico"
+    };
+
+    // Paths where we TRY to set the user (if cookie exists) but never reject.
+    // /_blazor is here because Blazor Server's SignalR negotiate request carries cookies
+    // and Blazor captures the auth state from that connection. If we skip it entirely,
+    // the Blazor circuit starts as unauthenticated even though the user has a valid cookie.
+    private static readonly string[] AlwaysPublicPrefixes =
+    {
+        "/_blazor"
     };
 
     public AgOneSsoMiddleware(RequestDelegate next, IOptions<AgOneSsoOptions> opts, ILogger<AgOneSsoMiddleware> log)
@@ -570,6 +579,11 @@ public class AgOneSsoMiddleware
 
     private bool IsPublicPath(string path)
     {
+        // Built-in public paths (e.g. /_blazor for Blazor Server SignalR)
+        foreach (var p in AlwaysPublicPrefixes)
+            if (path.StartsWith(p, StringComparison.OrdinalIgnoreCase)) return true;
+
+        // User-configured public paths
         foreach (var p in _opts.PublicPaths)
         {
             // Exact match for "/" (home page)
