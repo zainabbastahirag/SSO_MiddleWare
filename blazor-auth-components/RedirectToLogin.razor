@@ -1,0 +1,41 @@
+@* ═══════════════════════════════════════════════════════════════════════════════
+    RedirectToLogin.razor — Drop this into your Shared folder.
+
+    Checks if the user is authenticated inside the Blazor circuit.
+    If not authenticated → force-navigates to AG ONE login (full page reload,
+    which hits the middleware, which redirects to AG ONE).
+
+    This catches the case where:
+    - User clears cookies mid-session
+    - Cookie expires while the Blazor circuit is still alive
+    - Someone bookmarks a page and opens it directly (middleware handles the
+      initial HTTP request, but this is a safety net inside the circuit)
+═══════════════════════════════════════════════════════════════════════════════ *@
+
+@inject NavigationManager Navigation
+@inject IConfiguration Configuration
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthState != null)
+        {
+            var state = await AuthState;
+            if (state.User?.Identity?.IsAuthenticated != true)
+            {
+                // Force a full page reload — this hits the SSO middleware on the server,
+                // which will redirect to AG ONE login since there's no valid cookie.
+                var currentUrl = Navigation.Uri;
+                var loginUrl = Configuration["AgOneSso:AgOneLoginUrl"]
+                            ?? Configuration["AgOneSso:AgOneBaseUrl"]
+                            ?? "/";
+                var redirectUrl = $"{loginUrl}?returnUrl={Uri.EscapeDataString(currentUrl)}";
+
+                Navigation.NavigateTo(redirectUrl, forceLoad: true);
+            }
+        }
+    }
+}

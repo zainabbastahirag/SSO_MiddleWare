@@ -1,0 +1,28 @@
+@* ═══════════════════════════════════════════════════════════════════════════════
+    App.razor — Example with CascadingAuthenticationState.
+
+    This wraps the entire app so <AuthorizeView> and [CascadingParameter]
+    Task<AuthenticationState> work in all components.
+═══════════════════════════════════════════════════════════════════════════════ *@
+
+<CascadingAuthenticationState>
+    <Router AppAssembly="@typeof(App).Assembly">
+        <Found Context="routeData">
+            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
+                <NotAuthorized>
+                    <RedirectToLogin />
+                </NotAuthorized>
+                <Authorizing>
+                    <MudProgressCircular Indeterminate="true" />
+                </Authorizing>
+            </AuthorizeRouteView>
+            <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+        </Found>
+        <NotFound>
+            <PageTitle>Not found</PageTitle>
+            <LayoutView Layout="@typeof(MainLayout)">
+                <MudText Typo="Typo.h5">Page not found</MudText>
+            </LayoutView>
+        </NotFound>
+    </Router>
+</CascadingAuthenticationState>

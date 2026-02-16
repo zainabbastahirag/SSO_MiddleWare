@@ -1,0 +1,15 @@
+// ═══════════════════════════════════════════════════════════════════════════════
+// ADD THESE LINES to your existing Program.cs (AG ONE Safe, AG ONE Work, etc.)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// After builder.Services.AddAgOneSso(builder.Configuration):
+
+// This tells Blazor Server to read auth state from HttpContext.User
+// (which the SSO middleware sets from the cookie)
+builder.Services.AddScoped<AuthenticationStateProvider, ServerAuthenticationStateProvider>();
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// You need this using at the top:
+// using Microsoft.AspNetCore.Components.Authorization;
+// using Microsoft.AspNetCore.Components.Server;
+// ═══════════════════════════════════════════════════════════════════════════════

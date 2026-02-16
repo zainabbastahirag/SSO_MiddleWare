@@ -1,0 +1,35 @@
+@* ═══════════════════════════════════════════════════════════════════════════════
+    MainLayout.razor — Example showing how to add auth check.
+
+    Wrap your layout content with <AuthorizeView>.
+    - Authorized → show the app
+    - Not authorized → <RedirectToLogin /> sends them to AG ONE
+═══════════════════════════════════════════════════════════════════════════════ *@
+
+@inherits LayoutComponentBase
+
+<AuthorizeView>
+    <Authorized>
+        @* ── Your normal layout goes here ── *@
+        <MudThemeProvider />
+        <MudDialogProvider />
+        <MudSnackbarProvider />
+
+        <MudLayout>
+            <MudAppBar Elevation="1">
+                <MudText Typo="Typo.h6">AG ONE Safe</MudText>
+                <MudSpacer />
+                <MudText Typo="Typo.body2">@context.User.Identity?.Name</MudText>
+            </MudAppBar>
+
+            <MudMainContent Class="pa-4">
+                @Body
+            </MudMainContent>
+        </MudLayout>
+    </Authorized>
+
+    <NotAuthorized>
+        @* ── Not logged in → redirect to AG ONE ── *@
+        <RedirectToLogin />
+    </NotAuthorized>
+</AuthorizeView>
