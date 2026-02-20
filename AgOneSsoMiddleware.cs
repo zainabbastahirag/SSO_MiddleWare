@@ -106,6 +106,31 @@ public class AgOneSsoOptions
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// LOCAL TOKEN REFRESH (for AG ONE gateway — refreshes tokens using its own DB)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// <summary>
+/// Implement this interface in AG ONE and register it in DI.
+/// The middleware calls this when IsAgOneGateway=true and a token needs refresh.
+/// AG ONE uses its own DB + Entra ID to refresh the token locally.
+///
+/// Register in AG ONE's Program.cs:
+///   builder.Services.AddScoped&lt;ILocalTokenRefreshService, YourTokenRefreshService&gt;();
+/// </summary>
+public interface ILocalTokenRefreshService
+{
+    /// <summary>
+    /// Refresh the token for the given user. Returns a new valid JWT, or null if refresh failed.
+    /// </summary>
+    /// <param name="userId">User ID extracted from the JWT's "sub" claim.</param>
+    /// <param name="tenantId">Tenant ID extracted from the JWT's "tenant_id" or "tid" claim.</param>
+    /// <param name="currentToken">The current (possibly expired) token string.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A new valid JWT string, or null if refresh failed.</returns>
+    Task<string?> RefreshTokenAsync(string? userId, string? tenantId, string? currentToken, CancellationToken ct = default);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // DTOs (match your existing AG ONE API models)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -432,8 +457,29 @@ public class AgOneSsoMiddleware
 
     private async Task<string?> RefreshAsync(HttpContext ctx, string currentToken)
     {
-        if (_opts.IsAgOneGateway) return null; // AG ONE doesn't call itself
+        // Extract userId and tenantId from the JWT (needed by both local and remote refresh)
+        string? userId = null;
+        string? tenantId = null;
+        try
+        {
+            if (_jwt.CanReadToken(currentToken))
+            {
+                var parsed = _jwt.ReadJwtToken(currentToken);
+                userId = parsed.Claims.FirstOrDefault(c => c.Type == "sub")?.Value
+                      ?? parsed.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+                tenantId = parsed.Claims.FirstOrDefault(c => c.Type == "tenant_id")?.Value
+                        ?? parsed.Claims.FirstOrDefault(c => c.Type == "tid")?.Value;
+            }
+        }
+        catch { /* If parsing fails, continue with null userId */ }
 
+        // ── AG ONE Gateway: refresh locally using its own DB + Entra ID ──
+        if (_opts.IsAgOneGateway)
+        {
+            return await RefreshLocalAsync(ctx, userId, tenantId, currentToken);
+        }
+
+        // ── Product apps: call AG ONE's API to refresh ──
         var endpoint = _opts.TokenValidateEndpoint.TrimStart('/');
         var fullUrl = $"{_opts.AgOneBaseUrl.TrimEnd('/')}/{endpoint}";
 
@@ -447,26 +493,6 @@ public class AgOneSsoMiddleware
             }
 
             var client = factory.CreateClient("AgOneSso");
-
-            // Extract userId and tenantId from the current JWT claims.
-            // The token from LocalStorage is AG ONE's custom JWT (HS256) which has
-            // sub=userId, tenant_id=tenantId. The DB stores the Entra ID token (RS256)
-            // which is a completely different string. So we send the userId so AG ONE
-            // can look up the user's Entra ID token by UserId instead of token string.
-            string? userId = null;
-            string? tenantId = null;
-            try
-            {
-                if (_jwt.CanReadToken(currentToken))
-                {
-                    var parsed = _jwt.ReadJwtToken(currentToken);
-                    userId = parsed.Claims.FirstOrDefault(c => c.Type == "sub")?.Value
-                          ?? parsed.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
-                    tenantId = parsed.Claims.FirstOrDefault(c => c.Type == "tenant_id")?.Value
-                            ?? parsed.Claims.FirstOrDefault(c => c.Type == "tid")?.Value;
-                }
-            }
-            catch { /* If parsing fails, we still send the raw token */ }
 
             _log.LogInformation("Calling AG ONE token refresh: POST {Url} (userId={UserId})", fullUrl, userId ?? "unknown");
 
@@ -520,6 +546,43 @@ public class AgOneSsoMiddleware
         catch (Exception ex)
         {
             _log.LogWarning(ex, "AG ONE token refresh failed calling {Url}", fullUrl);
+            return null;
+        }
+    }
+
+    // ═══════════ Local refresh (AG ONE gateway only) ═══════════
+
+    private async Task<string?> RefreshLocalAsync(HttpContext ctx, string? userId, string? tenantId, string currentToken)
+    {
+        try
+        {
+            var refreshService = ctx.RequestServices.GetService<ILocalTokenRefreshService>();
+            if (refreshService == null)
+            {
+                _log.LogWarning(
+                    "IsAgOneGateway=true but ILocalTokenRefreshService is not registered. " +
+                    "Register it in Program.cs: builder.Services.AddScoped<ILocalTokenRefreshService, YourService>()");
+                return null;
+            }
+
+            _log.LogInformation("AG ONE local token refresh for userId={UserId}", userId ?? "unknown");
+
+            var newToken = await refreshService.RefreshTokenAsync(userId, tenantId, currentToken, ctx.RequestAborted);
+
+            if (!string.IsNullOrEmpty(newToken))
+            {
+                _log.LogInformation("AG ONE local token refresh succeeded for userId={UserId}", userId ?? "unknown");
+            }
+            else
+            {
+                _log.LogWarning("AG ONE local token refresh returned null for userId={UserId}", userId ?? "unknown");
+            }
+
+            return newToken;
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "AG ONE local token refresh failed for userId={UserId}", userId ?? "unknown");
             return null;
         }
     }
