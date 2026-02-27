@@ -1,26 +1,22 @@
-// ─── AG One Work Product ───
-// Just copy ServiceBusService.cs into your project and use it like this.
+using Microsoft.Extensions.Configuration;
 
-var connectionString = "<YOUR_SERVICE_BUS_CONNECTION_STRING>";
-var topicName = "central-events";
-var subscriptionName = "agonework-subscription";
+var config = new ConfigurationBuilder()
+    .AddJsonFile("appsettings.json")
+    .Build();
 
-await using var serviceBus = new ServiceBusService(connectionString, topicName, subscriptionName);
+await using var serviceBus = new ServiceBusService(config);
 
-// 1) LISTEN
-await serviceBus.ListenAsync(
-    onMessageReceived: async (message) =>
-    {
-        Console.WriteLine($"[AG One Work] Got message: {message}");
-        await Task.CompletedTask;
-    }
-);
+// LISTEN
+await serviceBus.ListenAsync(async (message) =>
+{
+    Console.WriteLine($"[AG One Work] Got message: {message}");
+    await Task.CompletedTask;
+});
 
-// 2) PUBLISH
+// PUBLISH
 var taskUpdate = new { TaskId = "T-999", Status = "Completed", AssignedTo = "john@company.com" };
 await serviceBus.PublishAsync(taskUpdate);
 
 Console.WriteLine("Press any key to stop...");
 Console.ReadKey();
-
 await serviceBus.StopListeningAsync();

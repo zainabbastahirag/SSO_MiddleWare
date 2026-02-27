@@ -1,10 +1,15 @@
 using System.Text.Json;
 using Azure.Messaging.ServiceBus;
+using Microsoft.Extensions.Configuration;
 
 /// <summary>
 /// Single self-contained Azure Service Bus service.
 /// Copy this file into any project (Sage, AG One, AG One Work).
-/// Only requires NuGet: Azure.Messaging.ServiceBus
+/// Requires NuGet packages:
+///   - Azure.Messaging.ServiceBus
+///   - Microsoft.Extensions.Configuration
+///   - Microsoft.Extensions.Configuration.Json
+///   - Microsoft.Extensions.Configuration.Binder
 /// </summary>
 public class ServiceBusService : IAsyncDisposable
 {
@@ -19,6 +24,23 @@ public class ServiceBusService : IAsyncDisposable
         _client = new ServiceBusClient(connectionString);
         _topicName = topicName;
         _subscriptionName = subscriptionName;
+    }
+
+    /// <summary>
+    /// Creates a ServiceBusService by reading from the "AzureServiceBus" section in appsettings.json.
+    /// </summary>
+    public ServiceBusService(IConfiguration configuration)
+    {
+        var section = configuration.GetSection("AzureServiceBus");
+
+        var connectionString = section["ConnectionString"]
+            ?? throw new InvalidOperationException("AzureServiceBus:ConnectionString is missing in appsettings.json");
+        _topicName = section["TopicName"]
+            ?? throw new InvalidOperationException("AzureServiceBus:TopicName is missing in appsettings.json");
+        _subscriptionName = section["SubscriptionName"]
+            ?? throw new InvalidOperationException("AzureServiceBus:SubscriptionName is missing in appsettings.json");
+
+        _client = new ServiceBusClient(connectionString);
     }
 
     // ──────────────────────────────────────────────
