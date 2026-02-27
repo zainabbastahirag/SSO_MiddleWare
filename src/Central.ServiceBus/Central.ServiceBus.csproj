@@ -6,8 +6,16 @@
     <Nullable>enable</Nullable>
     <RootNamespace>Central.ServiceBus</RootNamespace>
     <AssemblyName>Central.ServiceBus</AssemblyName>
-    <Description>Central Azure Service Bus integration library for Sage, AG One, and AG One Work products</Description>
+
+    <!-- NuGet Package Metadata -->
+    <PackageId>Central.ServiceBus</PackageId>
     <Version>1.0.0</Version>
+    <Authors>YourTeam</Authors>
+    <Description>Central Azure Service Bus integration library for Sage, AG One, and AG One Work products. Provides topic publishing and subscription listening out of the box.</Description>
+    <PackageTags>azure;servicebus;messaging;central</PackageTags>
+    <IsPackable>true</IsPackable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>CS1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
