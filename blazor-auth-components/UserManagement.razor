@@ -1,0 +1,733 @@
+@page "/admin/users"
+@layout AdminLayout
+@inject IUserService UserService
+@inject ISubscriptionService SubscriptionService
+@inject IInvitationApiService InvitationApi
+@inject ISnackbar Snackbar
+
+<PageTitle>User Management - AGOne</PageTitle>
+
+<div class="page-container">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">User Management</h1>
+            <p class="page-subtitle">Manage users for your subscribed products</p>
+        </div>
+        <button class="btn-primary" @onclick="OpenCreateDialog">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/>
+            </svg>
+            Invite User
+        </button>
+    </div>
+
+    @if (_isLoading)
+    {
+        <div style="text-align:center;padding:60px;">
+            <MudProgressCircular Indeterminate="true" />
+            <p style="margin-top:12px;color:#6B7280;">Loading users...</p>
+        </div>
+    }
+    else
+    {
+        <!-- Stats -->
+        <div class="stats-cards">
+            <div class="stat-card">
+                <div class="stat-icon total-bg"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+                <div class="stat-info"><span class="stat-value">@_users.Count</span><span class="stat-label">Total Users</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon active-bg"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="9 12 12 15 16 10"/></svg></div>
+                <div class="stat-info"><span class="stat-value">@_usersWithLogin.Count</span><span class="stat-label">With Entra ID Login</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon nologin-bg"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" x2="19.07" y1="4.93" y2="19.07"/></svg></div>
+                <div class="stat-info"><span class="stat-value">@_usersWithoutLogin.Count</span><span class="stat-label">No Login Access</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon pending-bg"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>
+                <div class="stat-info"><span class="stat-value">@_pendingUsers.Count</span><span class="stat-label">Pending Invites</span></div>
+            </div>
+        </div>
+
+        <!-- Status Filter Tabs -->
+        <div class="status-tabs">
+            <button class="status-tab @(_statusFilter == "all" ? "active" : "")" @onclick='() => _statusFilter = "all"'>
+                All <span class="tab-count">@_users.Count</span>
+            </button>
+            <button class="status-tab @(_statusFilter == "login" ? "active" : "")" @onclick='() => _statusFilter = "login"'>
+                With Login <span class="tab-count">@_usersWithLogin.Count</span>
+            </button>
+            <button class="status-tab @(_statusFilter == "nologin" ? "active" : "")" @onclick='() => _statusFilter = "nologin"'>
+                No Login <span class="tab-count">@_usersWithoutLogin.Count</span>
+            </button>
+            <button class="status-tab @(_statusFilter == "pending" ? "active" : "")" @onclick='() => _statusFilter = "pending"'>
+                Pending <span class="tab-count">@_pendingUsers.Count</span>
+            </button>
+        </div>
+
+        <!-- Product Filter -->
+        <div class="product-filter">
+            <span class="filter-label">Product:</span>
+            <div class="product-pills">
+                <button class="product-pill @(_selectedProductFilter == null ? "active" : "")" @onclick="() => _selectedProductFilter = null">
+                    All
+                </button>
+                @foreach (var product in _subscribedProducts)
+                {
+                    <button class="product-pill @(_selectedProductFilter == product.Id ? "active" : "")"
+                            @onclick="() => _selectedProductFilter = product.Id">
+                        @product.Name
+                        <span class="pill-count">@GetUserCountForProduct(product.Id)</span>
+                    </button>
+                }
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="card">
+            <div class="card-header">
+                <div class="search-box">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                    <input type="text" placeholder="Search by name or email..." @bind="_searchTerm" @bind:event="oninput" />
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Role</th>
+                            <th>Products</th>
+                            <th>Login Status</th>
+                            <th>Last Active</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (!FilteredUsers.Any())
+                        {
+                            <tr><td colspan="6" style="text-align:center;padding:40px;color:#6B7280;">No users found</td></tr>
+                        }
+                        @foreach (var user in FilteredUsers)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="user-cell">
+                                        <div class="user-avatar" style="background:@GetAvatarColor(user.Email ?? user.FirstName ?? "")">
+                                            @GetInitials(user.FirstName, user.LastName)
+                                        </div>
+                                        <div>
+                                            <div class="user-name">@GetFullName(user.FirstName, user.LastName)</div>
+                                            <div class="user-email">@(string.IsNullOrEmpty(user.Email) ? "No email" : user.Email)</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="role-badge @GetRoleClass(GetFirstRole(user))">@GetFirstRole(user)</span>
+                                </td>
+                                <td>
+                                    <div class="product-access">
+                                        @foreach (var pid in (user.AssignedProductIds ?? new()).Take(2))
+                                        {
+                                            var pname = _subscribedProducts.FirstOrDefault(p => p.Id == pid)?.Name;
+                                            @if (pname != null)
+                                            {
+                                                <span class="product-tag">@pname</span>
+                                            }
+                                        }
+                                        @{ var extraCount = (user.AssignedProductIds?.Count ?? 0) - 2; }
+                                        @if (extraCount > 0)
+                                        {
+                                            <span class="product-tag more">+@extraCount</span>
+                                        }
+                                        @if (user.AssignedProductIds == null || !user.AssignedProductIds.Any())
+                                        {
+                                            <span style="color:#9CA3AF;font-size:12px;">None</span>
+                                        }
+                                    </div>
+                                </td>
+                                <td>
+                                    @if (HasEntraLogin(user))
+                                    {
+                                        <span class="status-badge active">Entra ID ✓</span>
+                                    }
+                                    else if (!string.IsNullOrEmpty(user.Email) && !user.IsActive)
+                                    {
+                                        <span class="status-badge pending">Pending Invite</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="status-badge no-login">No Login</span>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="last-active">@FormatLastActive(user.LastLoginAt)</span>
+                                </td>
+                                <td>
+                                    <div class="action-buttons">
+                                        @if (!HasEntraLogin(user))
+                                        {
+                                            <button class="invite-row-btn" title="Send Invite" @onclick="() => OpenInviteForUser(user)">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.2 8.4c.5.38.8.97.8 1.6v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V10a2 2 0 0 1 .8-1.6l8-6a2 2 0 0 1 2.4 0l8 6Z"/><path d="m22 10-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 10"/></svg>
+                                                Invite
+                                            </button>
+                                        }
+                                        @if (!string.IsNullOrEmpty(user.Email) && !user.IsActive)
+                                        {
+                                            <button class="icon-btn" title="Resend Invite" @onclick="() => ResendInvite(user)">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.2 8.4c.5.38.8.97.8 1.6v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V10a2 2 0 0 1 .8-1.6l8-6a2 2 0 0 1 2.4 0l8 6Z"/><path d="m22 10-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 10"/></svg>
+                                            </button>
+                                        }
+                                        <button class="icon-btn" title="Edit" @onclick="() => EditUser(user)">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                                        </button>
+                                        <button class="icon-btn danger" title="Remove" @onclick="() => ConfirmRemove(user)">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- ═══════════ Invite / Edit Dialog ═══════════ -->
+@if (_showDialog)
+{
+    <div class="modal-overlay" @onclick="CloseDialog">
+        <div class="modal-content" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h2>@DialogTitle</h2>
+                <button class="close-btn" @onclick="CloseDialog">&times;</button>
+            </div>
+            <div class="modal-body">
+                @if (!string.IsNullOrEmpty(_dialogError))
+                {
+                    <div class="alert-error">@_dialogError</div>
+                }
+
+                <div class="form-group">
+                    <label>Email Address *</label>
+                    <input type="email" @bind="_form.Email" placeholder="user@company.com" />
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>First Name</label>
+                        <input type="text" @bind="_form.FirstName" placeholder="John" />
+                    </div>
+                    <div class="form-group">
+                        <label>Last Name</label>
+                        <input type="text" @bind="_form.LastName" placeholder="Doe" />
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Product Access & Roles *</label>
+                    <p class="form-hint">Select products and assign a role for each</p>
+                    <div class="product-role-list">
+                        @foreach (var product in _subscribedProducts)
+                        {
+                            var isSelected = _form.SelectedProducts.ContainsKey(product.Id);
+                            var rolesForProduct = _allRoles.Where(r => r.ProductId == product.Id || r.ProductId == null).ToList();
+                            <div class="product-role-row @(isSelected ? "selected" : "")">
+                                <label class="product-check">
+                                    <input type="checkbox" checked="@isSelected" @onchange="() => ToggleProduct(product.Id)" />
+                                    <div class="product-icon" style="background:@GetProductColor(product.Name)">@product.Name[0]</div>
+                                    <span class="product-check-name">@product.Name</span>
+                                </label>
+                                @if (isSelected && rolesForProduct.Any())
+                                {
+                                    <select value="@GetSelectedRoleId(product.Id)" @onchange="e => SetProductRole(product.Id, e)">
+                                        <option value="">Select role...</option>
+                                        @foreach (var role in rolesForProduct)
+                                        {
+                                            <option value="@role.Id">@role.DisplayName</option>
+                                        }
+                                    </select>
+                                }
+                                else if (isSelected)
+                                {
+                                    <span style="font-size:12px;color:#9CA3AF;">No roles configured</span>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                @if (_isNewInvite)
+                {
+                    <div class="form-group">
+                        <label>Personal Message (optional)</label>
+                        <textarea @bind="_form.PersonalMessage" rows="2" placeholder="Welcome to our organization..."></textarea>
+                    </div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button class="btn-outline" @onclick="CloseDialog">Cancel</button>
+                <button class="btn-primary" @onclick="SubmitForm" disabled="@_isSaving">
+                    @if (_isSaving)
+                    {
+                        <span class="spinner"></span>
+                    }
+                    @(_isNewInvite ? "Send Invitation" : "Save Changes")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- ═══════════ Confirm Remove ═══════════ -->
+@if (_showRemoveConfirm)
+{
+    <div class="modal-overlay" @onclick="() => _showRemoveConfirm = false">
+        <div class="modal-content confirm-modal" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h2>Remove User</h2>
+                <button class="close-btn" @onclick="() => _showRemoveConfirm = false">&times;</button>
+            </div>
+            <div class="modal-body" style="text-align:center;padding:32px 24px;">
+                <div style="width:56px;height:56px;border-radius:50%;background:#FEE2E2;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/></svg>
+                </div>
+                <p style="font-size:15px;color:#374151;">Remove <strong>@GetFullName(_userToRemove?.FirstName, _userToRemove?.LastName)</strong>?</p>
+                <p style="font-size:13px;color:#6B7280;">This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer" style="justify-content:center;">
+                <button class="btn-outline" @onclick="() => _showRemoveConfirm = false">Cancel</button>
+                <button class="btn-danger" @onclick="RemoveConfirmed">Remove</button>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .page-container{padding:0}.page-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px}.page-title{font-size:28px;font-weight:700;color:#111827;margin-bottom:4px}.page-subtitle{font-size:14px;color:#6B7280}
+    .btn-primary{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);border:none;border-radius:8px;color:white;font-weight:500;cursor:pointer;font-size:14px;transition:opacity .2s}.btn-primary:hover{opacity:.9}.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+    .btn-outline{padding:10px 20px;background:white;border:1px solid #E5E7EB;border-radius:8px;color:#374151;font-weight:500;cursor:pointer;font-size:14px}.btn-outline:hover{background:#F9FAFB}
+    .btn-danger{padding:10px 20px;background:#DC2626;border:none;border-radius:8px;color:white;font-weight:500;cursor:pointer;font-size:14px}.btn-danger:hover{background:#B91C1C}
+
+    .stats-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
+    .stat-card{background:white;border:1px solid #E5E7EB;border-radius:12px;padding:20px;display:flex;align-items:center;gap:16px}
+    .stat-icon{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center}
+    .total-bg{background:#DBEAFE;color:#2563EB}.active-bg{background:#D1FAE5;color:#059669}.nologin-bg{background:#FEE2E2;color:#DC2626}.pending-bg{background:#FEF3C7;color:#D97706}
+    .stat-value{display:block;font-size:24px;font-weight:700;color:#111827}.stat-label{font-size:13px;color:#6B7280}
+
+    .status-tabs{display:flex;gap:4px;margin-bottom:16px;background:white;border:1px solid #E5E7EB;border-radius:10px;padding:4px}
+    .status-tab{flex:1;padding:10px;background:transparent;border:none;border-radius:8px;font-size:13px;font-weight:500;color:#6B7280;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .2s}
+    .status-tab:hover{color:#111827;background:#F9FAFB}
+    .status-tab.active{background:linear-gradient(135deg,#3B82F6,#8B5CF6);color:white}
+    .tab-count{padding:1px 7px;border-radius:9999px;font-size:11px;background:rgba(0,0,0,.06)}.status-tab.active .tab-count{background:rgba(255,255,255,.2)}
+
+    .product-filter{background:white;border:1px solid #E5E7EB;border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+    .filter-label{font-size:13px;font-weight:500;color:#374151}
+    .product-pills{display:flex;gap:6px;flex-wrap:wrap}
+    .product-pill{padding:6px 12px;background:#F3F4F6;border:1px solid #E5E7EB;border-radius:9999px;font-size:12px;color:#374151;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all .2s}
+    .product-pill:hover{border-color:#3B82F6;color:#3B82F6}.product-pill.active{background:#3B82F6;border-color:#3B82F6;color:white}
+    .pill-count{padding:1px 5px;border-radius:9999px;font-size:10px;background:rgba(0,0,0,.08)}.product-pill.active .pill-count{background:rgba(255,255,255,.2)}
+
+    .card{background:white;border:1px solid #E5E7EB;border-radius:12px;overflow:hidden}
+    .card-header{padding:16px 20px;border-bottom:1px solid #E5E7EB}
+    .search-box{display:flex;align-items:center;gap:8px;padding:8px 12px;background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;max-width:320px}
+    .search-box input{border:none;background:transparent;outline:none;flex:1;font-size:14px}
+
+    .table-container{overflow-x:auto}
+    .data-table{width:100%;border-collapse:collapse}
+    .data-table th{text-align:left;padding:12px 16px;background:#F9FAFB;font-size:11px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:.5px}
+    .data-table td{padding:14px 16px;border-bottom:1px solid #F3F4F6;font-size:14px}
+    .data-table tr:hover{background:#FAFBFC}
+
+    .user-cell{display:flex;align-items:center;gap:12px}
+    .user-avatar{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:white;font-weight:600;font-size:14px;text-transform:uppercase;flex-shrink:0}
+    .user-name{font-weight:600;color:#111827}.user-email{font-size:12px;color:#6B7280}
+
+    .role-badge{padding:3px 8px;border-radius:6px;font-size:12px;font-weight:500}
+    .role-badge.admin{background:#DBEAFE;color:#1D4ED8}.role-badge.manager{background:#E0E7FF;color:#4F46E5}.role-badge.user{background:#F3F4F6;color:#374151}
+
+    .product-access{display:flex;gap:4px;flex-wrap:wrap}
+    .product-tag{padding:2px 8px;background:#E0E7FF;color:#4F46E5;border-radius:4px;font-size:11px}.product-tag.more{background:#F3F4F6;color:#6B7280}
+
+    .status-badge{padding:4px 10px;border-radius:9999px;font-size:12px;font-weight:500}
+    .status-badge.active{background:#D1FAE5;color:#065F46}.status-badge.pending{background:#FEF3C7;color:#92400E}.status-badge.no-login{background:#FEE2E2;color:#991B1B}
+    .last-active{font-size:13px;color:#6B7280}
+
+    .action-buttons{display:flex;gap:6px;align-items:center}
+    .icon-btn{padding:6px;background:transparent;border:1px solid #E5E7EB;border-radius:6px;cursor:pointer;color:#6B7280;transition:all .2s;display:flex;align-items:center;justify-content:center}.icon-btn:hover{background:#F3F4F6;color:#111827}.icon-btn.danger:hover{background:#FEE2E2;color:#DC2626;border-color:#FECACA}
+    .invite-row-btn{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:6px;color:#2563EB;font-size:12px;font-weight:500;cursor:pointer;transition:all .2s}.invite-row-btn:hover{background:#DBEAFE;border-color:#93C5FD}
+
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(2px)}
+    .modal-content{background:white;border-radius:12px;width:100%;max-width:580px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.15)}.confirm-modal{max-width:420px}
+    .modal-header{display:flex;justify-content:space-between;align-items:center;padding:20px 24px;border-bottom:1px solid #E5E7EB}.modal-header h2{font-size:18px;font-weight:600}
+    .close-btn{background:none;border:none;font-size:24px;cursor:pointer;color:#9CA3AF;line-height:1}.close-btn:hover{color:#374151}
+    .modal-body{padding:24px}.modal-footer{display:flex;justify-content:flex-end;gap:12px;padding:16px 24px;border-top:1px solid #E5E7EB}
+
+    .alert-error{padding:10px 14px;background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;color:#991B1B;font-size:13px;margin-bottom:16px}
+
+    .form-group{margin-bottom:16px}.form-group label{display:block;font-size:14px;font-weight:500;margin-bottom:6px;color:#374151}
+    .form-group input,.form-group select,.form-group textarea{width:100%;padding:10px 12px;border:1px solid #E5E7EB;border-radius:8px;font-size:14px;box-sizing:border-box;font-family:inherit}
+    .form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,.1)}
+    .form-hint{font-size:12px;color:#6B7280;margin-bottom:10px}.form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+
+    .product-role-list{display:flex;flex-direction:column;gap:8px}
+    .product-role-row{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid #E5E7EB;border-radius:8px;transition:all .2s}
+    .product-role-row.selected{border-color:#3B82F6;background:#EFF6FF}
+    .product-check{display:flex;align-items:center;gap:10px;cursor:pointer;flex:1}
+    .product-check input{width:16px;height:16px;accent-color:#3B82F6}
+    .product-icon{width:32px;height:32px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:white;font-weight:600;font-size:14px}
+    .product-check-name{font-weight:500;font-size:14px;color:#111827}
+    .product-role-row select{width:170px;padding:6px 10px;border:1px solid #D1D5DB;border-radius:6px;font-size:13px}
+
+    .spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .6s linear infinite;display:inline-block}
+    @@keyframes spin{to{transform:rotate(360deg)}}
+    @@media(max-width:768px){.stats-cards{grid-template-columns:repeat(2,1fr)}.form-row{grid-template-columns:1fr}}
+</style>
+
+@code {
+    // ═══════════ State ═══════════
+    private bool _isLoading = true;
+    private List<UserDto> _users = new();
+    private List<SubscribedProduct> _subscribedProducts = new();
+    private List<RoleDto> _allRoles = new();
+
+    private string _searchTerm = "";
+    private string _statusFilter = "all";
+    private Guid? _selectedProductFilter;
+
+    // Dialog
+    private bool _showDialog;
+    private bool _isNewInvite;
+    private bool _isSaving;
+    private string? _dialogError;
+    private UserDto? _editingUser;
+    private InviteForm _form = new();
+
+    // Remove
+    private bool _showRemoveConfirm;
+    private UserDto? _userToRemove;
+
+    // ═══════════ Computed Lists ═══════════
+    private List<UserDto> _usersWithLogin => _users.Where(HasEntraLogin).ToList();
+    private List<UserDto> _usersWithoutLogin => _users.Where(u => !HasEntraLogin(u)).ToList();
+    private List<UserDto> _pendingUsers => _users.Where(u => !string.IsNullOrEmpty(u.Email) && !u.IsActive).ToList();
+
+    /// <summary>Determines if a user has Entra ID login access.</summary>
+    private bool HasEntraLogin(UserDto user) =>
+        user.IsActive && !string.IsNullOrEmpty(user.Email) && user.LastLoginAt.HasValue;
+
+    private IEnumerable<UserDto> FilteredUsers
+    {
+        get
+        {
+            var q = _users.AsEnumerable();
+
+            // Status filter
+            q = _statusFilter switch
+            {
+                "login" => q.Where(HasEntraLogin),
+                "nologin" => q.Where(u => !HasEntraLogin(u)),
+                "pending" => q.Where(u => !string.IsNullOrEmpty(u.Email) && !u.IsActive),
+                _ => q
+            };
+
+            // Product filter
+            if (_selectedProductFilter.HasValue)
+                q = q.Where(u => u.AssignedProductIds?.Contains(_selectedProductFilter.Value) == true);
+
+            // Search
+            if (!string.IsNullOrWhiteSpace(_searchTerm))
+                q = q.Where(u =>
+                    (u.FirstName ?? "").Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    (u.LastName ?? "").Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    (u.Email ?? "").Contains(_searchTerm, StringComparison.OrdinalIgnoreCase));
+
+            return q.OrderBy(u => u.FirstName ?? "");
+        }
+    }
+
+    // ═══════════ Init ═══════════
+    protected override async Task OnInitializedAsync()
+    {
+        _isLoading = true;
+
+        try
+        {
+            // Load subscribed products
+            var subs = await SubscriptionService.GetMySubscriptionsAsync();
+            _subscribedProducts = subs
+                .Where(s => s.Status == "Active")
+                .Select(s => new SubscribedProduct { Id = s.ProductId, Name = s.ProductName ?? "Product" })
+                .ToList();
+        }
+        catch
+        {
+            _subscribedProducts = new();
+        }
+
+        try
+        {
+            // Load roles from API (filtered by tenant on backend)
+            _allRoles = await InvitationApi.GetTenantRolesAsync();
+        }
+        catch
+        {
+            _allRoles = new();
+        }
+
+        try
+        {
+            _users = await UserService.GetAllAsync();
+        }
+        catch
+        {
+            _users = new();
+        }
+
+        _isLoading = false;
+    }
+
+    // ═══════════ Dialog ═══════════
+
+    private string DialogTitle
+    {
+        get
+        {
+            if (_editingUser != null && string.IsNullOrEmpty(_editingUser.Email)) return $"Invite {GetFullName(_editingUser.FirstName, _editingUser.LastName)}";
+            if (_editingUser != null) return "Edit User";
+            return "Invite New User";
+        }
+    }
+
+    private void OpenCreateDialog()
+    {
+        _editingUser = null;
+        _isNewInvite = true;
+        _dialogError = null;
+        _form = new InviteForm();
+        _showDialog = true;
+    }
+
+    private void OpenInviteForUser(UserDto user)
+    {
+        _editingUser = user;
+        _isNewInvite = true;
+        _dialogError = null;
+        _form = new InviteForm
+        {
+            Email = "",
+            FirstName = user.FirstName ?? "",
+            LastName = user.LastName ?? ""
+        };
+        foreach (var pid in user.AssignedProductIds ?? new())
+            _form.SelectedProducts[pid] = Guid.Empty;
+        _showDialog = true;
+    }
+
+    private void EditUser(UserDto user)
+    {
+        _editingUser = user;
+        _isNewInvite = false;
+        _dialogError = null;
+        _form = new InviteForm
+        {
+            Email = user.Email ?? "",
+            FirstName = user.FirstName ?? "",
+            LastName = user.LastName ?? ""
+        };
+        foreach (var pid in user.AssignedProductIds ?? new())
+            _form.SelectedProducts[pid] = Guid.Empty;
+        _showDialog = true;
+    }
+
+    private void CloseDialog()
+    {
+        _showDialog = false;
+        _editingUser = null;
+        _dialogError = null;
+    }
+
+    private void ToggleProduct(Guid productId)
+    {
+        if (_form.SelectedProducts.ContainsKey(productId))
+            _form.SelectedProducts.Remove(productId);
+        else
+            _form.SelectedProducts[productId] = Guid.Empty;
+    }
+
+    private string GetSelectedRoleId(Guid productId)
+    {
+        return _form.SelectedProducts.TryGetValue(productId, out var roleId) && roleId != Guid.Empty
+            ? roleId.ToString() : "";
+    }
+
+    private void SetProductRole(Guid productId, ChangeEventArgs e)
+    {
+        if (Guid.TryParse(e.Value?.ToString(), out var roleId))
+            _form.SelectedProducts[productId] = roleId;
+        else
+            _form.SelectedProducts[productId] = Guid.Empty;
+    }
+
+    private async Task SubmitForm()
+    {
+        _dialogError = null;
+
+        if (string.IsNullOrWhiteSpace(_form.Email))
+        {
+            _dialogError = "Email address is required.";
+            return;
+        }
+
+        if (!_form.SelectedProducts.Any())
+        {
+            _dialogError = "Select at least one product.";
+            return;
+        }
+
+        // Check that each selected product has a role assigned
+        var missingRoles = _form.SelectedProducts
+            .Where(kv => kv.Value == Guid.Empty)
+            .Select(kv => _subscribedProducts.FirstOrDefault(p => p.Id == kv.Key)?.Name ?? "Unknown")
+            .ToList();
+
+        if (missingRoles.Any())
+        {
+            _dialogError = $"Select a role for: {string.Join(", ", missingRoles)}";
+            return;
+        }
+
+        _isSaving = true;
+        StateHasChanged();
+
+        try
+        {
+            if (_isNewInvite)
+            {
+                // Call the backend invitation API
+                var dto = new CreateInvitationDto
+                {
+                    Email = _form.Email.Trim(),
+                    FirstName = _form.FirstName?.Trim(),
+                    LastName = _form.LastName?.Trim(),
+                    ProductRoles = _form.SelectedProducts
+                        .Select(kv => new InvitationProductRoleDto { ProductId = kv.Key, RoleId = kv.Value })
+                        .ToList(),
+                    PersonalMessage = _form.PersonalMessage,
+                    ExpirationDays = 7
+                };
+
+                var result = await InvitationApi.CreateInvitationAsync(dto);
+
+                if (!result.Success)
+                {
+                    _dialogError = result.Message ?? "Failed to send invitation.";
+                    return;
+                }
+
+                // Update the local user if we were inviting an existing one
+                if (_editingUser != null)
+                {
+                    _editingUser.Email = _form.Email.Trim();
+                    _editingUser.FirstName = _form.FirstName?.Trim() ?? _editingUser.FirstName;
+                    _editingUser.LastName = _form.LastName?.Trim() ?? _editingUser.LastName;
+                    _editingUser.AssignedProductIds = _form.SelectedProducts.Keys.ToList();
+                }
+
+                Snackbar.Add($"Invitation sent to {_form.Email}", Severity.Success);
+            }
+            else
+            {
+                // Edit mode — update user
+                if (_editingUser != null)
+                {
+                    _editingUser.Email = _form.Email.Trim();
+                    _editingUser.FirstName = _form.FirstName?.Trim() ?? _editingUser.FirstName;
+                    _editingUser.LastName = _form.LastName?.Trim() ?? _editingUser.LastName;
+                    _editingUser.AssignedProductIds = _form.SelectedProducts.Keys.ToList();
+                    // TODO: await UserService.UpdateAsync(_editingUser);
+                }
+                Snackbar.Add("User updated successfully", Severity.Success);
+            }
+
+            CloseDialog();
+        }
+        catch (Exception ex)
+        {
+            _dialogError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _isSaving = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ResendInvite(UserDto user)
+    {
+        try
+        {
+            var dto = new CreateInvitationDto
+            {
+                Email = user.Email!,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                ProductRoles = (user.AssignedProductIds ?? new())
+                    .Select(pid => new InvitationProductRoleDto { ProductId = pid, RoleId = Guid.Empty })
+                    .ToList(),
+                ExpirationDays = 7
+            };
+            var result = await InvitationApi.CreateInvitationAsync(dto);
+            Snackbar.Add(result.Success ? $"Invitation resent to {user.Email}" : (result.Message ?? "Failed"), result.Success ? Severity.Success : Severity.Error);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private void ConfirmRemove(UserDto user) { _userToRemove = user; _showRemoveConfirm = true; }
+
+    private void RemoveConfirmed()
+    {
+        if (_userToRemove != null)
+        {
+            _users.Remove(_userToRemove);
+            Snackbar.Add($"{GetFullName(_userToRemove.FirstName, _userToRemove.LastName)} removed", Severity.Info);
+        }
+        _showRemoveConfirm = false;
+        _userToRemove = null;
+    }
+
+    // ═══════════ Helpers ═══════════
+    private int GetUserCountForProduct(Guid pid) => _users.Count(u => u.AssignedProductIds?.Contains(pid) == true);
+    private static string GetInitials(string? f, string? l) { var a = f?.Trim().FirstOrDefault(); var b = l?.Trim().FirstOrDefault(); return a != default && b != default ? $"{a}{b}" : a != default ? $"{a}" : "?"; }
+    private static string GetFullName(string? f, string? l) { var n = $"{f} {l}".Trim(); return string.IsNullOrEmpty(n) ? "Unnamed" : n; }
+    private static string GetFirstRole(UserDto u) => u.Roles?.FirstOrDefault() ?? "No Role";
+    private string GetAvatarColor(string t) { var c = new[] { "#3B82F6", "#10B981", "#8B5CF6", "#F59E0B", "#EF4444", "#EC4899" }; return c[Math.Abs(t.GetHashCode()) % c.Length]; }
+    private string GetProductColor(string n) { var c = new[] { "#3B82F6", "#10B981", "#8B5CF6", "#F59E0B" }; return c[Math.Abs(n.GetHashCode()) % c.Length]; }
+    private string GetRoleClass(string r) => r switch { "TenantAdmin" or "TenantManager" => "admin", "ProductAdmin" => "manager", _ => "user" };
+    private string FormatLastActive(DateTime? d) { if (!d.HasValue) return "Never"; var diff = DateTime.Now - d.Value; if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}m ago"; if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}h ago"; if (diff.TotalDays < 7) return $"{(int)diff.TotalDays}d ago"; return d.Value.ToString("dd MMM yyyy"); }
+
+    // ═══════════ Inner Classes ═══════════
+    private class InviteForm
+    {
+        public string Email { get; set; } = "";
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
+        public string? PersonalMessage { get; set; }
+        /// <summary>ProductId → RoleId</summary>
+        public Dictionary<Guid, Guid> SelectedProducts { get; set; } = new();
+    }
+
+    private class SubscribedProduct
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = "";
+    }
+}

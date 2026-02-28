@@ -1,0 +1,388 @@
+<mxfile host="app.diagrams.net" modified="2026-02-14T00:00:00.000Z" agent="draw.io" version="22.0.0" type="device">
+  <diagram id="sso-complete" name="AG ONE SSO Architecture">
+    <mxGraphModel dx="1800" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2200" pageHeight="1800" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- TITLE -->
+        <!-- ═══════════════════════════════════════════════ -->
+        <mxCell id="title" value="AG ONE — Single Sign-On (SSO) Architecture" style="text;html=1;fontSize=26;fontStyle=1;align=center;verticalAlign=middle;fillColor=none;strokeColor=none;fontColor=#1a1a2e;" vertex="1" parent="1">
+          <mxGeometry x="550" y="15" width="700" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- USER / BROWSER -->
+        <!-- ═══════════════════════════════════════════════ -->
+        <mxCell id="user" value="👤 User / Browser" style="shape=actor;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="60" y="310" width="100" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- ENTRA ID -->
+        <!-- ═══════════════════════════════════════════════ -->
+        <mxCell id="entra" value="Microsoft Entra ID&#xa;(Azure AD)&#xa;&#xa;• OAuth 2.0 / OIDC&#xa;• Issues Access + Refresh Tokens&#xa;• Signing Keys (JWKS)" style="shape=cloud;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;fontStyle=0;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="770" y="50" width="280" height="150" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- AG ONE GATEWAY -->
+        <!-- ═══════════════════════════════════════════════ -->
+        <mxCell id="agone-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=5;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="300" y="80" width="380" height="560" as="geometry" />
+        </mxCell>
+        <mxCell id="agone-title" value="AG ONE — Central Gateway" style="text;html=1;fontSize=16;fontStyle=1;align=center;verticalAlign=middle;fillColor=#6c8ebf;strokeColor=#3a6ea5;fontColor=#ffffff;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="340" y="90" width="300" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- SSO Middleware (AG ONE) -->
+        <mxCell id="agone-mw" value="AgOneSsoMiddleware&#xa;(IsAgOneGateway = true)&#xa;&#xa;• Validates JWT from cookie&#xa;• Sets HttpContext.User&#xa;• Does NOT call external refresh&#xa;• PublicPaths: [&quot;/&quot;]&#xa;• AnonymousPaths: /login,&#xa;  /api/auth/*, /api/productlaunch" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;verticalAlign=top;spacingLeft=8;spacingTop=5;fontSize=10;shadow=0;" vertex="1" parent="1">
+          <mxGeometry x="320" y="135" width="230" height="150" as="geometry" />
+        </mxCell>
+
+        <!-- Token DB -->
+        <mxCell id="db" value="SQL Database&#xa;(UserTokens)&#xa;&#xa;• UserId&#xa;• AccessToken (Entra ID)&#xa;• RefreshToken&#xa;• ExpiresUtc&#xa;• TenantId" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=10;fillColor=#f5f5f5;strokeColor=#666666;align=left;verticalAlign=middle;spacingLeft=8;fontSize=10;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="320" y="300" width="170" height="140" as="geometry" />
+        </mxCell>
+
+        <!-- Product Launcher -->
+        <mxCell id="launcher" value="Product Launcher&#xa;&#xa;GET /api/productlaunch/&#xa;      launch/{code}?token=xxx&#xa;&#xa;→ 302 Redirect to Product URL&#xa;   with ?token=eyJhbG..." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;verticalAlign=top;spacingLeft=8;spacingTop=5;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="320" y="460" width="220" height="115" as="geometry" />
+        </mxCell>
+
+        <!-- Refresh API -->
+        <mxCell id="refresh-api" value="Token Refresh API&#xa;&#xa;POST /api/auth/external/validate&#xa;{ userId, tenantId, token }&#xa;&#xa;→ Lookup by UserId&#xa;→ Refresh via Entra ID if expired&#xa;→ Return { token: &quot;new...&quot; }" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=left;verticalAlign=top;spacingLeft=8;spacingTop=5;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="510" y="300" width="225" height="130" as="geometry" />
+        </mxCell>
+
+        <!-- Entra ID login label  -->
+        <mxCell id="agone-login" value="Entra ID Login&#xa;&#xa;• /api/auth/login&#xa;• /api/auth/callback&#xa;• Saves tokens to DB&#xa;• Generates custom JWT (HS256)&#xa;  with sub, email, role&#xa;• Stores in LocalStorage" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8eaf6;strokeColor=#6c8ebf;align=left;verticalAlign=top;spacingLeft=8;spacingTop=5;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="560" y="135" width="195" height="140" as="geometry" />
+        </mxCell>
+
+        <!-- Arrow: AG ONE Login → Entra -->
+        <mxCell id="a-agone-entra" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#9673a6;strokeWidth=2;entryX=0;entryY=0.5;exitX=1;exitY=0.3;exitDx=0;exitDy=0;" edge="1" parent="1" source="agone-login" target="entra">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a-agone-entra-l" value="① Login via&#xa;   Entra ID" style="edgeLabel;html=1;fontSize=10;fontStyle=1;fontColor=#9673a6;" vertex="1" connectable="0" parent="a-agone-entra">
+          <mxGeometry x="-0.1" relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- Arrow: Entra → AG ONE (tokens back) -->
+        <mxCell id="a-entra-agone" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#9673a6;strokeWidth=1;dashed=1;entryX=1;entryY=0.7;exitX=0;exitY=0.7;exitDx=0;exitDy=0;" edge="1" parent="1" source="entra" target="agone-login">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a-entra-agone-l" value="Access + Refresh&#xa;Tokens returned" style="edgeLabel;html=1;fontSize=9;fontColor=#9673a6;" vertex="1" connectable="0" parent="a-entra-agone">
+          <mxGeometry x="0.1" relative="1" as="geometry"><mxPoint y="12" as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- Arrow: Login → DB (save) -->
+        <mxCell id="a-login-db" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#666666;strokeWidth=1;dashed=1;exitX=0;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0;entryDx=0;entryDy=15;" edge="1" parent="1" source="agone-login" target="db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a-login-db-l" value="② Save tokens&#xa;   to DB" style="edgeLabel;html=1;fontSize=9;fontColor=#666666;fontStyle=1;" vertex="1" connectable="0" parent="a-login-db">
+          <mxGeometry relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- Arrow: Refresh API → DB -->
+        <mxCell id="a-refresh-db" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;strokeWidth=1;dashed=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;entryDy=-10;" edge="1" parent="1" source="refresh-api" target="db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a-refresh-db-l" value="Lookup&#xa;by UserId" style="edgeLabel;html=1;fontSize=9;fontColor=#82b366;" vertex="1" connectable="0" parent="a-refresh-db">
+          <mxGeometry relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- Arrow: Refresh API → Entra (refresh token) -->
+        <mxCell id="a-refresh-entra" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#9673a6;strokeWidth=1;dashed=1;exitX=1;exitY=0.2;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="refresh-api" target="entra">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="910" y="326" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="a-refresh-entra-l" value="Refresh token&#xa;+ client_secret" style="edgeLabel;html=1;fontSize=9;fontColor=#9673a6;" vertex="1" connectable="0" parent="a-refresh-entra">
+          <mxGeometry x="0.2" relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- Arrow: User → AG ONE (login) -->
+        <mxCell id="a-user-agone" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#b85450;strokeWidth=2;exitX=1;exitY=0.3;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="user" target="agone-mw">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a-user-agone-l" value="Login" style="edgeLabel;html=1;fontSize=11;fontStyle=1;fontColor=#b85450;" vertex="1" connectable="0" parent="a-user-agone">
+          <mxGeometry relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- Arrow: User → AG ONE launcher -->
+        <mxCell id="a-user-launch" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#9673a6;strokeWidth=2;exitX=1;exitY=0.7;exitDx=0;exitDy=0;entryX=0;entryY=0.3;entryDx=0;entryDy=0;" edge="1" parent="1" source="user" target="launcher">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a-user-launch-l" value="③ Click&#xa;   &quot;Launch&#xa;   Product&quot;" style="edgeLabel;html=1;fontSize=10;fontStyle=1;fontColor=#9673a6;" vertex="1" connectable="0" parent="a-user-launch">
+          <mxGeometry relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- PRODUCT: AG ONE WORK -->
+        <!-- ═══════════════════════════════════════════════ -->
+        <mxCell id="work-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4edda;strokeColor=#28a745;arcSize=5;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="300" y="720" width="380" height="400" as="geometry" />
+        </mxCell>
+        <mxCell id="work-title" value="AG ONE Work (Blazor Server)" style="text;html=1;fontSize=14;fontStyle=1;align=center;verticalAlign=middle;fillColor=#28a745;strokeColor=#1b7a30;fontColor=#ffffff;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="340" y="730" width="300" height="28" as="geometry" />
+        </mxCell>
+
+        <mxCell id="work-mw" value="AgOneSsoMiddleware&#xa;(IsAgOneGateway = false)&#xa;&#xa;① Extract token from cookie or ?token=xxx&#xa;② Parse JWT → get claims (sub, email, role)&#xa;③ Check expiry&#xa;④ If expired → call AG ONE Refresh API&#xa;   POST { userId: &quot;6ce6...&quot;, token: &quot;eyJ...&quot; }&#xa;⑤ Set HttpContext.User&#xa;⑥ Set HttpOnly cookie: agone_sso_token&#xa;⑦ If from ?token → redirect to clean URL" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;verticalAlign=top;spacingLeft=8;spacingTop=5;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="320" y="770" width="280" height="175" as="geometry" />
+        </mxCell>
+
+        <mxCell id="work-setup" value="Setup (Program.cs — 3 lines):&#xa;builder.Services.AddAgOneSso(config);&#xa;app.UseAgOneSso();&#xa;app.MapAgOneSsoEndpoints();" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8f5e9;strokeColor=#28a745;align=left;verticalAlign=top;spacingLeft=8;spacingTop=5;fontSize=10;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="320" y="960" width="280" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="work-endpoints" value="Auto-mapped:&#xa;GET  /api/auth/sso-user-info&#xa;POST /api/auth/sso-logout" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;align=left;verticalAlign=top;spacingLeft=8;spacingTop=5;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="320" y="1045" width="200" height="55" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- PRODUCT: AG ONE SAFE -->
+        <!-- ═══════════════════════════════════════════════ -->
+        <mxCell id="safe-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4edda;strokeColor=#28a745;arcSize=5;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="750" y="720" width="280" height="210" as="geometry" />
+        </mxCell>
+        <mxCell id="safe-title" value="AG ONE Safe (Blazor Server)" style="text;html=1;fontSize=14;fontStyle=1;align=center;verticalAlign=middle;fillColor=#28a745;strokeColor=#1b7a30;fontColor=#ffffff;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="770" y="730" width="240" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="safe-mw" value="Same AgOneSsoMiddleware.cs&#xa;Same 3 lines in Program.cs&#xa;Same appsettings.json pattern&#xa;&#xa;IsAgOneGateway = false&#xa;AgOneBaseUrl = https://agone..." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;verticalAlign=top;spacingLeft=8;spacingTop=5;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="770" y="770" width="230" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="safe-label" value="Identical middleware — just different config" style="text;html=1;fontSize=10;fontStyle=2;align=center;fillColor=none;strokeColor=none;fontColor=#555555;" vertex="1" parent="1">
+          <mxGeometry x="770" y="880" width="240" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- FUTURE PRODUCT -->
+        <!-- ═══════════════════════════════════════════════ -->
+        <mxCell id="future-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4edda;strokeColor=#28a745;arcSize=5;shadow=1;dashed=1;dashPattern=8 8;" vertex="1" parent="1">
+          <mxGeometry x="750" y="960" width="280" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="future-title" value="Future Product (any Blazor app)" style="text;html=1;fontSize=14;fontStyle=1;align=center;verticalAlign=middle;fillColor=#28a745;strokeColor=#1b7a30;fontColor=#ffffff;rounded=1;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="770" y="970" width="240" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="future-steps" value="1. Copy AgOneSsoMiddleware.cs&#xa;2. dotnet add package ...OpenIdConnect&#xa;3. Add 3 lines to Program.cs&#xa;4. Set appsettings.json → Done ✓" style="text;html=1;fontSize=11;align=left;verticalAlign=top;fillColor=none;strokeColor=none;fontColor=#155724;spacingLeft=8;spacingTop=5;" vertex="1" parent="1">
+          <mxGeometry x="770" y="1005" width="250" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- ARROWS: LAUNCH FLOW -->
+        <!-- ═══════════════════════════════════════════════ -->
+
+        <!-- Launcher → Work (redirect) -->
+        <mxCell id="a-launch-work" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#28a745;strokeWidth=3;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="launcher" target="work-box">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="430" y="640" />
+              <mxPoint x="490" y="640" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="a-launch-work-l" value="④ 302 Redirect&#xa;https://agonework.com?token=eyJhbG..." style="edgeLabel;html=1;fontSize=11;fontStyle=1;fontColor=#28a745;" vertex="1" connectable="0" parent="a-launch-work">
+          <mxGeometry x="-0.2" relative="1" as="geometry"><mxPoint x="40" as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- Launcher → Safe -->
+        <mxCell id="a-launch-safe" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#28a745;strokeWidth=2;dashed=1;exitX=1;exitY=0.7;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="launcher" target="safe-box">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="740" y="541" />
+              <mxPoint x="740" y="680" />
+              <mxPoint x="890" y="680" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="a-launch-safe-l" value="or to Safe" style="edgeLabel;html=1;fontSize=10;fontColor=#28a745;" vertex="1" connectable="0" parent="a-launch-safe">
+          <mxGeometry x="0.3" relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- Work → AG ONE Refresh API -->
+        <mxCell id="a-work-refresh" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#d4a017;strokeWidth=2;dashed=1;dashPattern=8 4;exitX=1;exitY=0.3;exitDx=0;exitDy=0;entryX=1;entryY=0.8;entryDx=0;entryDy=0;" edge="1" parent="1" source="work-mw" target="refresh-api">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="730" y="823" />
+              <mxPoint x="730" y="404" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="a-work-refresh-l" value="⑥ Token expired?&#xa;POST /api/auth/external/validate&#xa;{ userId, tenantId, token }&#xa;&#xa;Returns new access token&#xa;→ Update cookie" style="edgeLabel;html=1;fontSize=10;fontStyle=1;fontColor=#d4a017;align=left;" vertex="1" connectable="0" parent="a-work-refresh">
+          <mxGeometry x="-0.4" relative="1" as="geometry"><mxPoint x="10" as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- User → Work (subsequent) -->
+        <mxCell id="a-user-work" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#b85450;strokeWidth=1;dashed=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="user" target="work-mw">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="110" y="860" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="a-user-work-l" value="⑤ Subsequent requests&#xa;   Cookie: agone_sso_token=eyJ..." style="edgeLabel;html=1;fontSize=10;fontColor=#b85450;align=left;" vertex="1" connectable="0" parent="a-user-work">
+          <mxGeometry x="-0.2" relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- MIDDLEWARE DECISION FLOW (right side) -->
+        <!-- ═══════════════════════════════════════════════ -->
+        <mxCell id="flow-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fafafa;strokeColor=#cccccc;arcSize=3;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="1120" y="80" width="500" height="830" as="geometry" />
+        </mxCell>
+        <mxCell id="flow-title" value="Middleware Decision Flow (runs on every request)" style="text;html=1;fontSize=14;fontStyle=1;align=center;verticalAlign=middle;fillColor=#333333;strokeColor=none;fontColor=#ffffff;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="1140" y="90" width="460" height="28" as="geometry" />
+        </mxCell>
+
+        <!-- Start -->
+        <mxCell id="f-start" value="Request" style="ellipse;whiteSpace=wrap;html=1;fillColor=#6c8ebf;strokeColor=#3a6ea5;fontColor=#ffffff;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1320" y="130" width="100" height="35" as="geometry" />
+        </mxCell>
+
+        <!-- D1: Static? -->
+        <mxCell id="f-d1" value="Static file?&#xa;(.js .css .wasm .dll)" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1290" y="185" width="160" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="f-a1" style="endArrow=block;endFill=1;strokeWidth=1;" edge="1" parent="1" source="f-start" target="f-d1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="f-skip1" value="Serve ✓" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1500" y="198" width="65" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="f-a1y" style="endArrow=block;endFill=1;strokeColor=#82b366;" edge="1" parent="1" source="f-d1" target="f-skip1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f-a1y-l" value="Y" style="edgeLabel;html=1;fontSize=9;fontColor=#82b366;fontStyle=1;" vertex="1" connectable="0" parent="f-a1y"><mxGeometry relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry></mxCell>
+
+        <!-- D2: Anonymous? -->
+        <mxCell id="f-d2" value="AnonymousPath?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1300" y="265" width="140" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="f-a2" style="endArrow=block;endFill=1;strokeWidth=1;" edge="1" parent="1" source="f-d1" target="f-d2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f-a2-l" value="N" style="edgeLabel;html=1;fontSize=9;fontStyle=1;" vertex="1" connectable="0" parent="f-a2"><mxGeometry relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry></mxCell>
+
+        <mxCell id="f-skip2" value="Skip ✓" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1500" y="275" width="65" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="f-a2y" style="endArrow=block;endFill=1;strokeColor=#82b366;" edge="1" parent="1" source="f-d2" target="f-skip2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f-a2y-l" value="Y" style="edgeLabel;html=1;fontSize=9;fontColor=#82b366;fontStyle=1;" vertex="1" connectable="0" parent="f-a2y"><mxGeometry relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry></mxCell>
+
+        <!-- Extract -->
+        <mxCell id="f-extract" value="Extract token from:&#xa;Header → Cookie → ?token=" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e3f2fd;strokeColor=#6c8ebf;fontSize=10;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1285" y="335" width="170" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="f-a3" style="endArrow=block;endFill=1;strokeWidth=1;" edge="1" parent="1" source="f-d2" target="f-extract"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f-a3-l" value="N" style="edgeLabel;html=1;fontSize=9;fontStyle=1;" vertex="1" connectable="0" parent="f-a3"><mxGeometry relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry></mxCell>
+
+        <!-- D3: Token found? -->
+        <mxCell id="f-d3" value="Token&#xa;found?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1320" y="395" width="100" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="f-a4" style="endArrow=block;endFill=1;strokeWidth=1;" edge="1" parent="1" source="f-extract" target="f-d3"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- No token → Public? -->
+        <mxCell id="f-d3a" value="Public&#xa;Path?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1155" y="395" width="80" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="f-a4n" style="endArrow=block;endFill=1;strokeColor=#b85450;" edge="1" parent="1" source="f-d3" target="f-d3a"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f-a4n-l" value="No" style="edgeLabel;html=1;fontSize=9;fontColor=#b85450;fontStyle=1;" vertex="1" connectable="0" parent="f-a4n"><mxGeometry relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry></mxCell>
+
+        <mxCell id="f-anon" value="Anonymous ✓" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=9;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1140" y="350" width="80" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="f-a4np" style="endArrow=block;endFill=1;strokeColor=#82b366;" edge="1" parent="1" source="f-d3a" target="f-anon"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f-a4np-l" value="Y" style="edgeLabel;html=1;fontSize=9;fontColor=#82b366;fontStyle=1;" vertex="1" connectable="0" parent="f-a4np"><mxGeometry relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry></mxCell>
+
+        <mxCell id="f-reject1" value="REJECT ✗&#xa;401 / Redirect" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1140" y="460" width="90" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="f-a4nr" style="endArrow=block;endFill=1;strokeColor=#b85450;" edge="1" parent="1" source="f-d3a" target="f-reject1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f-a4nr-l" value="N" style="edgeLabel;html=1;fontSize=9;fontColor=#b85450;fontStyle=1;" vertex="1" connectable="0" parent="f-a4nr"><mxGeometry relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry></mxCell>
+
+        <!-- Validate -->
+        <mxCell id="f-validate" value="Validate JWT&#xa;(parse claims, check exp)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e3f2fd;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1290" y="470" width="160" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="f-a5" style="endArrow=block;endFill=1;strokeWidth=1;" edge="1" parent="1" source="f-d3" target="f-validate"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f-a5-l" value="Yes" style="edgeLabel;html=1;fontSize=9;fontStyle=1;" vertex="1" connectable="0" parent="f-a5"><mxGeometry relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry></mxCell>
+
+        <!-- D4: Status -->
+        <mxCell id="f-d4" value="Status?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1325" y="525" width="90" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="f-a6" style="endArrow=block;endFill=1;strokeWidth=1;" edge="1" parent="1" source="f-validate" target="f-d4"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- Valid -->
+        <mxCell id="f-valid" value="✅ Set User&#xa;Set Cookie&#xa;Continue" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1480" y="520" width="100" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="f-a6v" style="endArrow=block;endFill=1;strokeColor=#82b366;strokeWidth=2;" edge="1" parent="1" source="f-d4" target="f-valid"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f-a6v-l" value="Valid" style="edgeLabel;html=1;fontSize=9;fontColor=#82b366;fontStyle=1;" vertex="1" connectable="0" parent="f-a6v"><mxGeometry relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry></mxCell>
+
+        <!-- Expiring -->
+        <mxCell id="f-expiring" value="⏳ Proactive refresh&#xa;(continue even if fails)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="1475" y="590" width="130" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="f-a6e" style="endArrow=block;endFill=1;strokeColor=#d6b656;" edge="1" parent="1" source="f-d4" target="f-expiring"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f-a6e-l" value="Expiring" style="edgeLabel;html=1;fontSize=9;fontColor=#d6b656;fontStyle=1;" vertex="1" connectable="0" parent="f-a6e"><mxGeometry relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry></mxCell>
+
+        <!-- Invalid -->
+        <mxCell id="f-invalid" value="❌ REJECT" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1155" y="530" width="85" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="f-a6i" style="endArrow=block;endFill=1;strokeColor=#b85450;" edge="1" parent="1" source="f-d4" target="f-invalid"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f-a6i-l" value="Invalid" style="edgeLabel;html=1;fontSize=9;fontColor=#b85450;fontStyle=1;" vertex="1" connectable="0" parent="f-a6i"><mxGeometry relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry></mxCell>
+
+        <!-- Expired → Refresh -->
+        <mxCell id="f-expired" value="🔄 Call AG ONE&#xa;POST /api/auth/&#xa;external/validate&#xa;{ userId, token }" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e3f2fd;strokeColor=#6c8ebf;fontSize=10;align=left;spacingLeft=5;" vertex="1" parent="1">
+          <mxGeometry x="1280" y="600" width="155" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="f-a6x" style="endArrow=block;endFill=1;strokeColor=#6c8ebf;strokeWidth=2;" edge="1" parent="1" source="f-d4" target="f-expired"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f-a6x-l" value="Expired" style="edgeLabel;html=1;fontSize=9;fontColor=#6c8ebf;fontStyle=1;" vertex="1" connectable="0" parent="f-a6x"><mxGeometry relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry></mxCell>
+
+        <!-- Refresh result -->
+        <mxCell id="f-d5" value="Refresh&#xa;OK?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1315" y="690" width="85" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="f-a7" style="endArrow=block;endFill=1;strokeWidth=1;" edge="1" parent="1" source="f-expired" target="f-d5"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="f-rok" value="✅ Update cookie&#xa;Set User, Continue" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=9;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1455" y="695" width="120" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="f-a7y" style="endArrow=block;endFill=1;strokeColor=#82b366;" edge="1" parent="1" source="f-d5" target="f-rok"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f-a7y-l" value="Y" style="edgeLabel;html=1;fontSize=9;fontColor=#82b366;fontStyle=1;" vertex="1" connectable="0" parent="f-a7y"><mxGeometry relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry></mxCell>
+
+        <mxCell id="f-rfail" value="❌ Redirect to&#xa;AG ONE login" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1155" y="695" width="100" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="f-a7n" style="endArrow=block;endFill=1;strokeColor=#b85450;" edge="1" parent="1" source="f-d5" target="f-rfail"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f-a7n-l" value="N" style="edgeLabel;html=1;fontSize=9;fontColor=#b85450;fontStyle=1;" vertex="1" connectable="0" parent="f-a7n"><mxGeometry relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry></mxCell>
+
+        <!-- Query string note -->
+        <mxCell id="f-qs" value="If token from ?token=xxx → after setting cookie,&#xa;redirect to clean URL (removes token from address bar)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede7f6;strokeColor=#9673a6;fontSize=9;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1200" y="760" width="350" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Legend in flow box -->
+        <mxCell id="f-legend" value="🟢 Green = Allowed     🔴 Red = Rejected     🟡 Yellow = Decision     🔵 Blue = Action     🟠 Orange = Refresh" style="text;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=none;strokeColor=none;fontColor=#555555;" vertex="1" parent="1">
+          <mxGeometry x="1140" y="810" width="460" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- BOTTOM: Key Points -->
+        <!-- ═══════════════════════════════════════════════ -->
+        <mxCell id="key-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff9c4;strokeColor=#f9a825;arcSize=5;" vertex="1" parent="1">
+          <mxGeometry x="1120" y="950" width="500" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="key-title" value="Key Design Points" style="text;html=1;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;fillColor=#f9a825;strokeColor=none;fontColor=#ffffff;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="1140" y="958" width="460" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="key-text" value="• ONE middleware file (AgOneSsoMiddleware.cs) — same code in every product&#xa;• AG ONE = IsAgOneGateway: true (no external refresh calls, handles own auth)&#xa;• Products = IsAgOneGateway: false (calls AG ONE API when tokens expire)&#xa;• Token handoff via query string (?token=xxx) — cookies can't cross domains&#xa;• Middleware sets HttpOnly cookie on the product's own domain&#xa;• Refresh uses userId (from custom JWT's &quot;sub&quot; claim) to find Entra ID token in DB&#xa;• /_blazor treated as PublicPath so Blazor Server SignalR gets auth state&#xa;• PublicPaths (e.g. &quot;/&quot;) load for everyone — logged-in users see their identity" style="text;html=1;fontSize=10;align=left;verticalAlign=top;fillColor=none;strokeColor=none;fontColor=#333333;spacingLeft=10;spacingTop=5;" vertex="1" parent="1">
+          <mxGeometry x="1130" y="988" width="480" height="115" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
