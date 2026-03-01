@@ -24,13 +24,8 @@ builder.Services.AddHttpClient("Backend",
 builder.Services.AddScoped(sp =>
     sp.GetRequiredService<IHttpClientFactory>().CreateClient("Backend"));
 
-// AuthService calls /api/auth/sso-user-info — no dependency on AuthenticationStateProvider
 builder.Services.AddScoped<IAuthService, AuthService>();
-
-// AuthenticationStateProvider depends on IAuthService (one-way, no cycle)
-builder.Services.AddScoped<AGOneAuthStateProvider>();
-builder.Services.AddScoped<AuthenticationStateProvider>(sp =>
-    sp.GetRequiredService<AGOneAuthStateProvider>());
+builder.Services.AddScoped<AuthenticationStateProvider, AGOneAuthStateProvider>();
 
 await builder.Build().RunAsync();
 
