@@ -1,0 +1,72 @@
+@page "/dashboard"
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
+@attribute [Authorize]
+
+<h3>Dashboard</h3>
+
+@if (_displayName != null)
+{
+    <div class="user-info">
+        <span class="initials-badge">@_initials</span>
+        <span class="display-name">@_displayName</span>
+        <span class="role-badge">@_primaryRole</span>
+    </div>
+
+    @if (_isManager)
+    {
+        <div class="manager-panel">
+            <p>You have management access.</p>
+        </div>
+    }
+}
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthStateTask { get; set; } = default!;
+
+    private string? _displayName;
+    private string _initials = "?";
+    private List<string> _roles = new();
+    private string _primaryRole = "Employee";
+    private bool _isManager;
+
+    private static readonly HashSet<string> ManagerRoles = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Manager", "Admin", "Administrator", "SuperAdmin"
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateTask;
+        var user = authState.User;
+
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            var name = user.FindFirst("name")?.Value
+                    ?? user.FindFirst(ClaimTypes.Name)?.Value
+                    ?? user.FindFirst("preferred_username")?.Value
+                    ?? "";
+            var email = user.FindFirst(ClaimTypes.Email)?.Value
+                     ?? user.FindFirst("email")?.Value
+                     ?? "";
+
+            _displayName = !string.IsNullOrEmpty(name) ? name : email;
+
+            var parts = _displayName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            _initials = parts.Length >= 2
+                ? $"{parts[0][0]}{parts[1][0]}".ToUpper()
+                : _displayName.Length > 0 ? _displayName[0].ToString().ToUpper() : "?";
+
+            _roles = user.FindAll(ClaimTypes.Role)
+                .Concat(user.FindAll("roles"))
+                .Concat(user.FindAll("http://schemas.microsoft.com/ws/2008/06/identity/claims/role"))
+                .Select(c => c.Value)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            _primaryRole = _roles.FirstOrDefault() ?? "Employee";
+            _isManager = _roles.Any(r => ManagerRoles.Contains(r));
+        }
+    }
+}
