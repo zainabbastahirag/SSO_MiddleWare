@@ -1,31 +1,28 @@
-using System.IdentityModel.Tokens.Jwt;
+using System.Net.Http.Json;
 using System.Security.Claims;
 using AGOneLearn.UI.Models;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
-using Microsoft.JSInterop;
 
 namespace AGOneLearn.UI.Services;
 
 /// <summary>
-/// AuthService retrieves user info directly from the JWT stored in a cookie,
-/// deliberately avoiding any dependency on AuthenticationStateProvider to prevent
-/// a circular dependency chain.
+/// Retrieves user info by calling the server's /api/auth/sso-user-info endpoint.
+/// The HttpOnly SSO cookie is sent automatically by the browser (via CookieHandler).
+/// No dependency on AuthenticationStateProvider — breaks the circular dependency.
 /// </summary>
 public class AuthService : IAuthService
 {
-    private const string TokenCookieName = "authToken";
-
-    private readonly IJSRuntime _jsRuntime;
+    private readonly HttpClient _http;
     private readonly NavigationManager _navigationManager;
     private readonly IServiceProvider _serviceProvider;
 
     public AuthService(
-        IJSRuntime jsRuntime,
+        HttpClient http,
         NavigationManager navigationManager,
         IServiceProvider serviceProvider)
     {
-        _jsRuntime = jsRuntime;
+        _http = http;
         _navigationManager = navigationManager;
         _serviceProvider = serviceProvider;
     }
@@ -34,53 +31,22 @@ public class AuthService : IAuthService
     {
         try
         {
-            var token = await GetCookieValueAsync(TokenCookieName);
+            var response = await _http.GetAsync("api/auth/sso-user-info");
 
-            if (string.IsNullOrWhiteSpace(token))
+            if (!response.IsSuccessStatusCode)
                 return null;
 
-            token = token.Trim('"');
+            var ssoUser = await response.Content.ReadFromJsonAsync<SsoUserInfoResponse>();
 
-            var handler = new JwtSecurityTokenHandler();
-            if (!handler.CanReadToken(token))
+            if (ssoUser == null || !ssoUser.IsAuthenticated)
                 return null;
-
-            var jwt = handler.ReadJwtToken(token);
-
-            if (jwt.ValidTo < DateTime.UtcNow)
-            {
-                await DeleteCookieAsync(TokenCookieName);
-                return null;
-            }
-
-            var claims = jwt.Claims.ToList();
-
-            var roles = claims
-                .Where(c => c.Type == ClaimTypes.Role
-                          || c.Type == "role"
-                          || c.Type == "roles"
-                          || c.Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role")
-                .Select(c => c.Value)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
-            var email = claims.FirstOrDefault(c =>
-                    c.Type == ClaimTypes.Email || c.Type == "email")?.Value
-                ?? string.Empty;
-
-            var displayName = claims.FirstOrDefault(c =>
-                    c.Type == ClaimTypes.Name || c.Type == "name" || c.Type == "preferred_username")?.Value
-                ?? email;
-
-            var subClaim = claims.FirstOrDefault(c =>
-                c.Type == ClaimTypes.NameIdentifier || c.Type == "sub")?.Value;
 
             return new UserInfo
             {
-                Id = Guid.TryParse(subClaim, out var id) ? id : Guid.NewGuid(),
-                Email = email,
-                DisplayName = displayName,
-                Roles = roles
+                Id = Guid.TryParse(ssoUser.UserId, out var id) ? id : Guid.NewGuid(),
+                Email = ssoUser.Email ?? string.Empty,
+                DisplayName = ssoUser.Name ?? ssoUser.Email ?? string.Empty,
+                Roles = ssoUser.Roles ?? new List<string>()
             };
         }
         catch
@@ -91,13 +57,21 @@ public class AuthService : IAuthService
 
     public async Task LoginAsync(string returnUrl = "/")
     {
-        _navigationManager.NavigateTo($"authentication/login?returnUrl={Uri.EscapeDataString(returnUrl)}", forceLoad: true);
+        var agOneLoginUrl = _navigationManager.BaseUri.TrimEnd('/');
+        _navigationManager.NavigateTo(
+            $"{agOneLoginUrl}/authentication/login?returnUrl={Uri.EscapeDataString(returnUrl)}",
+            forceLoad: true);
         await Task.CompletedTask;
     }
 
     public async Task LogoutAsync()
     {
-        await DeleteCookieAsync(TokenCookieName);
+        try
+        {
+            await _http.PostAsync("api/auth/sso-logout", null);
+        }
+        catch { }
+
         NotifyAuthenticationStateChanged();
         _navigationManager.NavigateTo("/", forceLoad: true);
     }
@@ -111,27 +85,13 @@ public class AuthService : IAuthService
         }
     }
 
-    private async Task<string?> GetCookieValueAsync(string cookieName)
+    private class SsoUserInfoResponse
     {
-        var allCookies = await _jsRuntime.InvokeAsync<string>("eval", "document.cookie");
-
-        if (string.IsNullOrEmpty(allCookies))
-            return null;
-
-        var cookies = allCookies.Split(';', StringSplitOptions.TrimEntries);
-        foreach (var cookie in cookies)
-        {
-            var parts = cookie.Split('=', 2);
-            if (parts.Length == 2 && parts[0].Trim() == cookieName)
-                return Uri.UnescapeDataString(parts[1].Trim());
-        }
-
-        return null;
-    }
-
-    private async Task DeleteCookieAsync(string cookieName)
-    {
-        await _jsRuntime.InvokeVoidAsync("eval",
-            $"document.cookie = '{cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'");
+        public bool IsAuthenticated { get; set; }
+        public string? UserId { get; set; }
+        public string? Email { get; set; }
+        public string? Name { get; set; }
+        public List<string> Roles { get; set; } = new();
+        public Dictionary<string, string> Claims { get; set; } = new();
     }
 }
