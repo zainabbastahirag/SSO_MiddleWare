@@ -2,7 +2,7 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @using System.Security.Claims
 @inject NavigationManager Navigation
-@inject IAuthService AuthService
+@inject AuthenticationStateProvider AuthStateProvider
 
 <div class="app-container">
     <!-- Sidebar -->
@@ -136,9 +136,6 @@
 </div>
 
 @code {
-    [CascadingParameter]
-    private Task<AuthenticationState>? AuthStateTask { get; set; }
-
     private bool sidebarCollapsed = false;
 
     private bool _isManager = false;
@@ -158,38 +155,37 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (AuthStateTask == null) return;
-
-        var authState = await AuthStateTask;
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         var user = authState.User;
 
-        if (user.Identity?.IsAuthenticated == true)
-        {
-            var name = user.FindFirst("name")?.Value
-                    ?? user.FindFirst(ClaimTypes.Name)?.Value
-                    ?? user.FindFirst("preferred_username")?.Value
-                    ?? "";
-            var email = user.FindFirst(ClaimTypes.Email)?.Value
-                     ?? user.FindFirst("email")?.Value
-                     ?? "";
+        if (user.Identity?.IsAuthenticated != true)
+            return;
 
-            _displayName = !string.IsNullOrEmpty(name) ? name : email;
+        var name = user.FindFirst("name")?.Value
+                ?? user.FindFirst(ClaimTypes.Name)?.Value
+                ?? user.FindFirst("preferred_username")?.Value
+                ?? "";
+        var email = user.FindFirst(ClaimTypes.Email)?.Value
+                 ?? user.FindFirst("email")?.Value
+                 ?? "";
 
-            var parts = _displayName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            _initials = parts.Length >= 2
-                ? $"{parts[0][0]}{parts[1][0]}".ToUpper()
-                : _displayName.Length > 0 ? _displayName[0].ToString().ToUpper() : "?";
+        _displayName = !string.IsNullOrEmpty(name) ? name : email;
 
-            _roles = user.FindAll(ClaimTypes.Role)
-                .Concat(user.FindAll("roles"))
-                .Concat(user.FindAll("http://schemas.microsoft.com/ws/2008/06/identity/claims/role"))
-                .Select(c => c.Value)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
+        var parts = _displayName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        _initials = parts.Length >= 2
+            ? $"{parts[0][0]}{parts[1][0]}".ToUpper()
+            : _displayName.Length > 0 ? _displayName[0].ToString().ToUpper() : "?";
 
-            _primaryRole = _roles.FirstOrDefault() ?? "Employee";
-            _isManager = _roles.Any(r => ManagerRoles.Contains(r));
-        }
+        _roles = user.FindAll(ClaimTypes.Role)
+            .Concat(user.FindAll("role"))
+            .Concat(user.FindAll("roles"))
+            .Concat(user.FindAll("http://schemas.microsoft.com/ws/2008/06/identity/claims/role"))
+            .Select(c => c.Value)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        _primaryRole = _roles.FirstOrDefault() ?? "Employee";
+        _isManager = _roles.Any(r => ManagerRoles.Contains(r));
     }
 
     private void ToggleSidebar()
