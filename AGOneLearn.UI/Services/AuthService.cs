@@ -1,31 +1,31 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using AGOneLearn.UI.Models;
-using Blazored.LocalStorage;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.JSInterop;
 
 namespace AGOneLearn.UI.Services;
 
 /// <summary>
-/// AuthService retrieves user info directly from the stored token / local storage,
+/// AuthService retrieves user info directly from the JWT stored in a cookie,
 /// deliberately avoiding any dependency on AuthenticationStateProvider to prevent
 /// a circular dependency chain.
 /// </summary>
 public class AuthService : IAuthService
 {
-    private const string TokenKey = "authToken";
+    private const string TokenCookieName = "authToken";
 
-    private readonly ILocalStorageService _localStorage;
+    private readonly IJSRuntime _jsRuntime;
     private readonly NavigationManager _navigationManager;
     private readonly IServiceProvider _serviceProvider;
 
     public AuthService(
-        ILocalStorageService localStorage,
+        IJSRuntime jsRuntime,
         NavigationManager navigationManager,
         IServiceProvider serviceProvider)
     {
-        _localStorage = localStorage;
+        _jsRuntime = jsRuntime;
         _navigationManager = navigationManager;
         _serviceProvider = serviceProvider;
     }
@@ -34,7 +34,7 @@ public class AuthService : IAuthService
     {
         try
         {
-            var token = await _localStorage.GetItemAsStringAsync(TokenKey);
+            var token = await GetCookieValueAsync(TokenCookieName);
 
             if (string.IsNullOrWhiteSpace(token))
                 return null;
@@ -49,7 +49,7 @@ public class AuthService : IAuthService
 
             if (jwt.ValidTo < DateTime.UtcNow)
             {
-                await _localStorage.RemoveItemAsync(TokenKey);
+                await DeleteCookieAsync(TokenCookieName);
                 return null;
             }
 
@@ -97,7 +97,7 @@ public class AuthService : IAuthService
 
     public async Task LogoutAsync()
     {
-        await _localStorage.RemoveItemAsync(TokenKey);
+        await DeleteCookieAsync(TokenCookieName);
         NotifyAuthenticationStateChanged();
         _navigationManager.NavigateTo("/", forceLoad: true);
     }
@@ -109,5 +109,29 @@ public class AuthService : IAuthService
         {
             agProvider.NotifyStateChanged();
         }
+    }
+
+    private async Task<string?> GetCookieValueAsync(string cookieName)
+    {
+        var allCookies = await _jsRuntime.InvokeAsync<string>("eval", "document.cookie");
+
+        if (string.IsNullOrEmpty(allCookies))
+            return null;
+
+        var cookies = allCookies.Split(';', StringSplitOptions.TrimEntries);
+        foreach (var cookie in cookies)
+        {
+            var parts = cookie.Split('=', 2);
+            if (parts.Length == 2 && parts[0].Trim() == cookieName)
+                return Uri.UnescapeDataString(parts[1].Trim());
+        }
+
+        return null;
+    }
+
+    private async Task DeleteCookieAsync(string cookieName)
+    {
+        await _jsRuntime.InvokeVoidAsync("eval",
+            $"document.cookie = '{cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'");
     }
 }
