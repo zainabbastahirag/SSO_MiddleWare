@@ -125,7 +125,7 @@ public async Task<IActionResult> HandleSsoComplete(
 // ═══════════════════════════════════════════════════════════════════════════════
 // NOTES
 //
-// 1. Register https://<host>/signin-oidc as a Redirect URI in Entra ID.
+// 1. /api/auth/sso/callback must be registered as a Redirect URI in Entra ID.
 //    That's the path the OIDC middleware uses (CallbackPath in Program.cs).
 //
 // 2. The old [HttpGet("sso/callback")] and ExchangeCodeForTokensAsync

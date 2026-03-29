@@ -219,7 +219,7 @@ builder.Services.AddAuthentication(options =>
     options.UsePkce = true;
     options.SaveTokens = true;
 
-    options.CallbackPath = "/signin-oidc";
+    options.CallbackPath = "/api/auth/sso/callback";
 
     if (isLocalDev)
     {
