@@ -23,17 +23,18 @@ var builder = WebApplication.CreateBuilder(args);
 // CONFIGURATION
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// Bind EntraIdSettings from the AgOneSso section so every service that injects
-// IOptions<EntraIdSettings> (e.g. B2CAuthenticationService) receives the same
-// Instance, TenantId, ClientId, ClientSecret used by the OIDC middleware.
-builder.Services.Configure<EntraIdSettings>(
-    builder.Configuration.GetSection("AgOneSso"));
-
 builder.Services.Configure<JwtSettings>(
     builder.Configuration.GetSection(JwtSettings.SectionName));
 
 var jwtSection = builder.Configuration.GetSection("Jwt");
 var agOneSso = builder.Configuration.GetSection("AgOneSso");
+
+var ssoInstance    = agOneSso["Instance"]?.TrimEnd('/') ?? "";
+var ssoTenantId   = agOneSso["TenantId"] ?? "";
+var ssoClientId   = agOneSso["ClientId"] ?? "";
+var ssoClientSecret = agOneSso["ClientSecret"] ?? "";
+var ssoCallbackPath = agOneSso["CallbackPath"] ?? "/api/auth/sso/callback";
+var ssoScopes     = agOneSso.GetSection("Scopes").Get<string[]>() ?? new[] { "openid", "profile", "email", "offline_access" };
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // INFRASTRUCTURE SERVICES
@@ -210,9 +211,9 @@ builder.Services.AddAuthentication(options =>
 })
 .AddOpenIdConnect(OpenIdConnectDefaults.AuthenticationScheme, options =>
 {
-    options.Authority = $"{agOneSso["Instance"]}/{agOneSso["TenantId"]}/v2.0";
-    options.ClientId = agOneSso["ClientId"]!;
-    options.ClientSecret = agOneSso["ClientSecret"]!;
+    options.Authority = $"{ssoInstance}/{ssoTenantId}/v2.0";
+    options.ClientId = ssoClientId;
+    options.ClientSecret = ssoClientSecret;
     options.ResponseType = OpenIdConnectResponseType.Code;
     options.ResponseMode = OpenIdConnectResponseMode.Query;
     options.SaveTokens = true;
@@ -238,10 +239,10 @@ builder.Services.AddAuthentication(options =>
     }
 
     options.MetadataAddress =
-        $"{agOneSso["Instance"]}/{agOneSso["TenantId"]}/v2.0/.well-known/openid-configuration";
+        $"{ssoInstance}/{ssoTenantId}/v2.0/.well-known/openid-configuration";
 
     options.Scope.Clear();
-    foreach (var scope in agOneSso.GetSection("Scopes").Get<string[]>() ?? Array.Empty<string>())
+    foreach (var scope in ssoScopes)
     {
         options.Scope.Add(scope);
     }
@@ -262,8 +263,6 @@ builder.Services.AddAuthentication(options =>
         }
     };
 
-    // Allow requests to paths that don't match CallbackPath to pass through
-    // to MVC routing without the OIDC middleware trying to handle them.
     options.SkipUnrecognizedRequests = true;
 })
 .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>

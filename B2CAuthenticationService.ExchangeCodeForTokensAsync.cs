@@ -1,60 +1,82 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// FIXED ExchangeCodeForTokensAsync method for B2CAuthenticationService
+// FIXED B2CAuthenticationService — reads all SSO settings from IConfiguration
+// using Configuration.GetSection("AgOneSso") instead of IOptions<EntraIdSettings>.
 //
-// Drop this into your existing B2CAuthenticationService class, replacing the
-// current ExchangeCodeForTokensAsync method.
+// CHANGES NEEDED IN YOUR EXISTING B2CAuthenticationService CLASS:
 //
-// KEY CHANGES from the original:
+//   1. Replace the IOptions<EntraIdSettings> constructor parameter with
+//      IConfiguration.
 //
-// 1. Reads all settings from _settings (EntraIdSettings) which is now bound
-//    to the "AgOneSso" config section in Program.cs — so Instance, TenantId,
-//    ClientId, ClientSecret all match what the OIDC middleware uses.
+//   2. Replace the ExchangeCodeForTokensAsync method body with the one below.
 //
-// 2. The redirect_uri is built using _settings.CallbackPath which must match
-//    the exact redirect URI registered in Entra ID and used in the authorize
-//    request.  If CallbackPath is not set in your EntraIdSettings class, it
-//    falls back to "/api/auth/sso/callback".
-//
-// 3. Scopes are read from _settings.Scopes (string[]) with a sensible
-//    fallback.  If your EntraIdSettings doesn't have a Scopes property,
-//    add one — or keep the hardcoded fallback.
-//
-// 4. Better error logging with the full request parameters (minus secrets)
-//    to make debugging easier.
+//   Everything else (ExtractUserFromIdToken, UserExistsAsync, _pkceStorage,
+//   StateData, Base64UrlDecode, etc.) stays the same.
 // ═══════════════════════════════════════════════════════════════════════════════
+
+// ─── CONSTRUCTOR CHANGE ──────────────────────────────────────────────────────
+//
+// BEFORE:
+//   private readonly EntraIdSettings _settings;
+//
+//   public B2CAuthenticationService(
+//       HttpClient httpClient,
+//       IOptions<EntraIdSettings> settings,
+//       IHttpContextAccessor httpContextAccessor,
+//       ILogger<B2CAuthenticationService> logger)
+//   {
+//       _httpClient = httpClient;
+//       _settings = settings.Value;
+//       ...
+//   }
+//
+// AFTER:
+//   private readonly IConfiguration _configuration;
+//
+//   public B2CAuthenticationService(
+//       HttpClient httpClient,
+//       IConfiguration configuration,
+//       IHttpContextAccessor httpContextAccessor,
+//       ILogger<B2CAuthenticationService> logger)
+//   {
+//       _httpClient = httpClient;
+//       _configuration = configuration;
+//       ...
+//   }
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─── REPLACEMENT METHOD ──────────────────────────────────────────────────────
 
 public async Task<SSOAuthResult> ExchangeCodeForTokensAsync(string code, string? state = null)
 {
     try
     {
-        var instance = _settings.Instance?.TrimEnd('/');
-        var tenantId = _settings.TenantId;
-        var clientId = _settings.ClientId;
-        var clientSecret = _settings.ClientSecret;
+        var ssoConfig    = _configuration.GetSection("AgOneSso");
+        var instance     = ssoConfig["Instance"]?.TrimEnd('/') ?? "";
+        var tenantId     = ssoConfig["TenantId"] ?? "";
+        var clientId     = ssoConfig["ClientId"] ?? "";
+        var clientSecret = ssoConfig["ClientSecret"] ?? "";
+        var callbackPath = ssoConfig["CallbackPath"] ?? "/api/auth/sso/callback";
+        var scopes       = ssoConfig.GetSection("Scopes").Get<string[]>()
+                           ?? new[] { "openid", "profile", "email", "offline_access" };
 
         if (string.IsNullOrEmpty(instance) || string.IsNullOrEmpty(tenantId) ||
             string.IsNullOrEmpty(clientId) || string.IsNullOrEmpty(clientSecret))
         {
             _logger.LogError(
-                "SSO settings incomplete. Instance={Instance}, TenantId={TenantId}, " +
-                "ClientId={ClientId}, ClientSecret={HasSecret}",
+                "AgOneSso settings incomplete. Instance={Instance}, TenantId={TenantId}, " +
+                "ClientId={ClientId}, HasSecret={HasSecret}",
                 instance, tenantId, clientId, !string.IsNullOrEmpty(clientSecret));
 
             return new SSOAuthResult
             {
                 Success = false,
-                Message = "SSO configuration is incomplete. Check AgOneSso settings."
+                Message = "SSO configuration is incomplete. Check AgOneSso section in appsettings."
             };
         }
 
-        // Build scopes — read from settings or use a sensible default
-        var scopes = _settings.Scopes != null && _settings.Scopes.Length > 0
-            ? string.Join(" ", _settings.Scopes)
-            : "openid profile email offline_access";
+        var scopeString = string.Join(" ", scopes);
 
-        // Build redirect URI — must match EXACTLY what was sent in the authorize request
         var http = _httpContextAccessor.HttpContext!;
-        var callbackPath = _settings.CallbackPath ?? "/api/auth/sso/callback";
         var redirectUri = $"{http.Request.Scheme}://{http.Request.Host}{callbackPath}";
 
         var tokenEndpoint = $"{instance}/{tenantId}/oauth2/v2.0/token";
@@ -63,7 +85,7 @@ public async Task<SSOAuthResult> ExchangeCodeForTokensAsync(string code, string?
         _logger.LogInformation("Token Endpoint: {Endpoint}", tokenEndpoint);
         _logger.LogInformation("Redirect URI:   {RedirectUri}", redirectUri);
         _logger.LogInformation("ClientId:        {ClientId}", clientId);
-        _logger.LogInformation("Scopes:          {Scopes}", scopes);
+        _logger.LogInformation("Scopes:          {Scopes}", scopeString);
 
         // ─── Extract PKCE code_verifier and metadata from state ───────────
         string? codeVerifier = null;
@@ -123,7 +145,7 @@ public async Task<SSOAuthResult> ExchangeCodeForTokensAsync(string code, string?
             ["client_secret"] = clientSecret,
             ["code"]          = code,
             ["redirect_uri"]  = redirectUri,
-            ["scope"]         = scopes,
+            ["scope"]         = scopeString,
             ["code_verifier"] = codeVerifier
         };
 
