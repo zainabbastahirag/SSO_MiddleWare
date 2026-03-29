@@ -92,7 +92,7 @@ public class AuthController : ControllerBase
     // ═══════════════════════════════════════════════════════════════════════════
 
     [Authorize(AuthenticationSchemes = "Cookies")]
-    [HttpGet("sso/complete")]
+    [HttpGet("/auth/sso/complete")]
     public async Task<IActionResult> HandleSsoComplete(
         [FromQuery] string? role = null,
         [FromQuery] string? productId = null)
