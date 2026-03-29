@@ -218,6 +218,7 @@ builder.Services.AddAuthentication(options =>
     options.ResponseMode = OpenIdConnectResponseMode.Query;
     options.UsePkce = true;
     options.SaveTokens = true;
+    options.MapInboundClaims = false;
 
     options.CallbackPath = "/api/auth/sso/callback";
 
@@ -278,6 +279,8 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
 {
+    options.MapInboundClaims = false;
+
     var jwt = builder.Configuration.GetSection("Jwt");
 
     options.TokenValidationParameters = new TokenValidationParameters
