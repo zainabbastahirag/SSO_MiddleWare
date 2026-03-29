@@ -6,7 +6,8 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
+using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 [ApiController]
 [Route("api/[controller]")]
@@ -56,13 +57,6 @@ public class AuthController : ControllerBase
 
     // ═══════════════════════════════════════════════════════════════════════════
     // SSO LOGIN — kicks off the Microsoft OIDC flow
-    //
-    // Browser hits: GET /api/auth/login/microsoft
-    //   → middleware generates PKCE, sets cookies, redirects to Microsoft
-    //   → user logs in at Microsoft
-    //   → Microsoft redirects to /api/auth/sso/callback (middleware intercepts)
-    //   → middleware exchanges code for tokens, validates, signs in cookie
-    //   → middleware redirects to /api/auth/sso/complete (below)
     // ═══════════════════════════════════════════════════════════════════════════
 
     [AllowAnonymous]
@@ -75,7 +69,7 @@ public class AuthController : ControllerBase
         var redirectUri = Url.Action(
             nameof(HandleSsoComplete),
             "Auth",
-            new { returnUrl, role, productId },
+            new { role, productId },
             Request.Scheme);
 
         _logger.LogInformation("SSO login started. After auth, redirecting to: {RedirectUri}", redirectUri);
@@ -89,174 +83,253 @@ public class AuthController : ControllerBase
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // SSO COMPLETE — runs AFTER the middleware has already done everything
+    // SSO COMPLETE — all your original HandleSsoCallback logic lives here
     //
-    // By the time this action executes:
-    //   ✅ The OIDC middleware intercepted /api/auth/sso/callback
-    //   ✅ It exchanged the authorization code for tokens (with PKCE)
-    //   ✅ It validated the id_token
-    //   ✅ It created a ClaimsPrincipal and signed in via Cookie scheme
-    //   ✅ HttpContext.User is populated with all claims
-    //   ✅ Tokens are available via HttpContext.GetTokenAsync()
-    //
-    // This action just reads the claims and issues your own application JWT.
-    //
-    // NOTE: You CANNOT have a controller action at /api/auth/sso/callback
-    //       because the OIDC middleware owns that path. That's why this is
-    //       at /api/auth/sso/complete instead.
+    // The ONLY difference from the old callback:
+    //   OLD: got user info from ExchangeCodeForTokensAsync(code, state)
+    //   NEW: gets user info from HttpContext.User claims (middleware already
+    //        exchanged the code and validated the tokens)
     // ═══════════════════════════════════════════════════════════════════════════
 
     [Authorize(AuthenticationSchemes = "Cookies")]
     [HttpGet("sso/complete")]
     public async Task<IActionResult> HandleSsoComplete(
-        [FromQuery] string? returnUrl = null,
         [FromQuery] string? role = null,
         [FromQuery] string? productId = null)
     {
-        // ─── 1. Read claims from the authenticated user ──────────────────
-        var email = User.FindFirst("preferred_username")?.Value
-                 ?? User.FindFirst("email")?.Value
-                 ?? User.FindFirst("emails")?.Value;
+        // ─── 1. Extract user info from claims (replaces ExchangeCodeForTokensAsync) ─
 
-        var objectId = User.FindFirst("oid")?.Value
-                    ?? User.FindFirst("sub")?.Value;
+        var ssoEmail = User.FindFirst("preferred_username")?.Value
+                    ?? User.FindFirst("email")?.Value
+                    ?? User.FindFirst("emails")?.Value;
 
-        var tenantId = User.FindFirst("tid")?.Value;
-        var displayName = User.FindFirst("name")?.Value;
+        var ssoObjectId = User.FindFirst("oid")?.Value
+                       ?? User.FindFirst("sub")?.Value;
 
-        if (string.IsNullOrEmpty(objectId))
+        var ssoTenantId = User.FindFirst("tid")?.Value;
+
+        var ssoFirstName = User.FindFirst("given_name")?.Value ?? "";
+        var ssoLastName = User.FindFirst("family_name")?.Value ?? "";
+        var ssoDisplayName = User.FindFirst("name")?.Value ?? "";
+        var ssoJobTitle = User.FindFirst("jobTitle")?.Value ?? "";
+
+        if (string.IsNullOrEmpty(ssoObjectId) || string.IsNullOrEmpty(ssoEmail))
         {
-            _logger.LogError("SSO complete but no 'oid' or 'sub' claim found");
-            return BadRequest(new
-            {
-                success = false,
-                message = "Authentication succeeded but user identity could not be determined."
-            });
+            _logger.LogError("SSO complete but missing claims — oid: {Oid}, email: {Email}", ssoObjectId, ssoEmail);
+            return BadRequest(new AuthResponse { Success = false, Message = "Authentication failed — missing user claims" });
         }
 
-        _logger.LogInformation(
-            "SSO complete — Email: {Email}, ObjectId: {Oid}, TenantId: {Tid}, Name: {Name}",
-            email, objectId, tenantId, displayName);
+        // Fill in first/last name from display name if claims not present
+        if (string.IsNullOrEmpty(ssoFirstName) && !string.IsNullOrEmpty(ssoDisplayName))
+        {
+            var parts = ssoDisplayName.Split(' ', 2);
+            ssoFirstName = parts[0];
+            ssoLastName = parts.Length > 1 ? parts[1] : "";
+        }
 
-        // ─── 2. Read tokens stored by the middleware (SaveTokens = true) ─
-        var accessToken  = await HttpContext.GetTokenAsync("access_token");
-        var idToken      = await HttpContext.GetTokenAsync("id_token");
+        _logger.LogInformation("SSO complete for user {Email}", ssoEmail);
+
+        // Read tokens stored by the middleware
+        var accessToken = await HttpContext.GetTokenAsync("access_token");
         var refreshToken = await HttpContext.GetTokenAsync("refresh_token");
-        var expiresAt    = await HttpContext.GetTokenAsync("expires_at");
+        var expiresAtStr = await HttpContext.GetTokenAsync("expires_at");
+        var tokenExpiresAt = !string.IsNullOrEmpty(expiresAtStr)
+            ? DateTime.Parse(expiresAtStr).ToUniversalTime()
+            : DateTime.UtcNow.AddHours(1);
 
-        _logger.LogInformation(
-            "Tokens received — AccessToken: {HasAccess}, IdToken: {HasId}, RefreshToken: {HasRefresh}, ExpiresAt: {ExpiresAt}",
-            !string.IsNullOrEmpty(accessToken),
-            !string.IsNullOrEmpty(idToken),
-            !string.IsNullOrEmpty(refreshToken),
-            expiresAt);
+        // ─── 2. Parse productId ─────────────────────────────────────────────
 
-        // ─── 3. Check if user exists or is new ──────────────────────────
-        var existingUser = await _userService.GetUserByObjectIdAsync(objectId);
-        var isNewUser = existingUser == null;
-
-        if (isNewUser && !string.IsNullOrEmpty(email))
+        Guid? parsedProductId = null;
+        if (!string.IsNullOrEmpty(productId) && Guid.TryParse(productId, out var pid))
         {
-            var userByEmail = await _userService.GetUserByEmailAsync(email);
-            if (userByEmail != null)
-            {
-                isNewUser = false;
-                existingUser = userByEmail;
-            }
+            parsedProductId = pid;
+            _logger.LogInformation("ProductId from SSO state: {ProductId}", parsedProductId);
         }
 
-        var defaultRole = role ?? (isNewUser ? "TenantAdmin" : null);
+        // ─── 3. Find or create user (your original logic, unchanged) ────────
 
-        _logger.LogInformation(
-            "User lookup — IsNewUser: {IsNew}, Role: {Role}, ProductId: {ProductId}",
-            isNewUser, defaultRole, productId ?? "(none)");
+        var defaultRole = role;
 
-        // ─── 4. Create or update user in your database ──────────────────
-        if (isNewUser)
+        var user = await _context.Users
+            .Include(u => u.Tenant)
+            .Include(u => u.UserRoles)
+            .ThenInclude(ur => ur.Role)
+            .FirstOrDefaultAsync(u => u.Email == ssoEmail);
+
+        if (user == null)
         {
-            _logger.LogInformation("Creating new user: {Email}, ObjectId: {Oid}", email, objectId);
+            // New SSO user — determine tenant
+            Tenant? tenant = null;
 
-            try
+            // Try to get tenant from Entra tenant ID
+            if (!string.IsNullOrEmpty(ssoTenantId) && Guid.TryParse(ssoTenantId, out var tenantIdFromState))
             {
-                await _userService.CreateUserFromSsoAsync(new CreateSsoUserRequest
+                tenant = await _tenantService.GetByIdAsync(tenantIdFromState);
+            }
+
+            if (tenant == null && !string.IsNullOrEmpty(ssoEmail))
+            {
+                var companyName = ExtractCompanyFromEmail(ssoEmail);
+                tenant = await _tenantService.GetByNameAsync(companyName);
+                if (tenant != null)
                 {
-                    ObjectId = objectId,
-                    Email = email ?? "",
-                    DisplayName = displayName ?? "",
-                    EntraTenantId = tenantId,
-                    Role = defaultRole ?? "TenantAdmin",
-                    ProductId = productId
-                });
+                    defaultRole = ProductRoles.Employee;
+                }
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to create user from SSO");
-            }
-        }
 
-        // ─── 5. Store tokens if you have a token storage service ────────
-        if (!string.IsNullOrEmpty(accessToken))
-        {
-            try
+            // Check for pending invitation
+            var invitation = await _context.UserInvitations
+                .Include(i => i.Tenant)
+                .FirstOrDefaultAsync(i => i.Email == ssoEmail && i.Status == InvitationStatus.Pending);
+
+            if (invitation != null)
             {
-                await _tokenStorageService.StoreTokensAsync(objectId, new StoredTokens
+                tenant = invitation.Tenant;
+
+                await _invitationService.AcceptInvitationAsync(new AcceptInvitationRequest
                 {
-                    AccessToken = accessToken,
-                    IdToken = idToken ?? "",
-                    RefreshToken = refreshToken ?? "",
-                    ExpiresAt = string.IsNullOrEmpty(expiresAt)
-                        ? DateTime.UtcNow.AddHours(1)
-                        : DateTime.Parse(expiresAt)
+                    Token = invitation.Token,
+                    FirstName = ssoFirstName,
+                    LastName = ssoLastName,
+                    SsoProvider = "Microsoft Entra ID",
+                    SsoSubjectId = ssoObjectId,
+                    SsoEmail = ssoEmail
                 });
+
+                user = await _context.Users
+                    .Include(u => u.Tenant)
+                    .Include(u => u.UserRoles)
+                    .ThenInclude(ur => ur.Role)
+                    .FirstOrDefaultAsync(u => u.Email == ssoEmail);
             }
-            catch (Exception ex)
+            else if (tenant == null)
             {
-                _logger.LogWarning(ex, "Failed to store tokens — non-fatal");
+                // No tenant found — self-registration
+                var companyName = ExtractCompanyFromEmail(ssoEmail);
+                var identifier = GenerateUniqueIdentifier(companyName);
+
+                tenant = new Tenant
+                {
+                    Name = companyName,
+                    Identifier = identifier,
+                    ContactEmail = ssoEmail,
+                    Status = TenantStatus.Trial
+                };
+                tenant = await _tenantService.CreateAsync(tenant);
+
+                await CreateDefaultRolesAsync(tenant.Id);
+            }
+
+            // Create subscription if product parameter provided
+            if (parsedProductId.HasValue && tenant != null)
+            {
+                await CreateSubscriptionForTenantAsync(tenant.Id, parsedProductId.Value);
+            }
+
+            if (user == null)
+            {
+                user = new User
+                {
+                    TenantId = tenant!.Id,
+                    Email = ssoEmail,
+                    FirstName = ssoFirstName,
+                    LastName = ssoLastName,
+                    JobTitle = ssoJobTitle,
+                    SSOProvider = "Microsoft Entra ID",
+                    SSOSubjectId = ssoObjectId,
+                    IsActive = true,
+                    EmailConfirmed = true
+                };
+                user = await _userService.CreateAsync(user);
+
+                var assignRole = defaultRole ?? TenantRoles.Admin;
+                var roleEntity = await _context.Roles.FirstOrDefaultAsync(r => r.Name == assignRole);
+                roleEntity ??= await _context.Roles.FirstOrDefaultAsync(r => r.Name == ProductRoles.Employee);
+
+                if (roleEntity != null)
+                {
+                    await _userService.AssignRoleAsync(user.Id, roleEntity.Id);
+                }
+
+                user = await _userService.GetByIdAsync(user.Id);
+            }
+        }
+        else
+        {
+            // Existing user — update SSO info if needed
+            if (string.IsNullOrEmpty(user.SSOSubjectId))
+            {
+                user.SSOProvider = "Microsoft Entra ID";
+                user.SSOSubjectId = ssoObjectId;
+            }
+            user.LastLoginAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            if (parsedProductId.HasValue)
+            {
+                await CreateSubscriptionForTenantAsync(user.TenantId, parsedProductId.Value);
             }
         }
 
-        // ─── 6. Issue your own application JWT ──────────────────────────
-        var appToken = _tokenService.GenerateToken(
-            objectId,
-            email ?? "",
-            displayName ?? "",
-            tenantId ?? "",
-            defaultRole ?? "User");
+        // ─── 4. Log login attempt ───────────────────────────────────────────
 
-        _logger.LogInformation("Application JWT issued for user: {Email}", email);
+        await LogLoginAttemptAsync(
+            user!.Id,
+            user.TenantId,
+            LoginType.SSO,
+            true,
+            ssoProvider: "Microsoft Entra ID",
+            ssoSubjectId: ssoObjectId);
 
-        // ─── 7. Return response ─────────────────────────────────────────
+        // ─── 5. Generate JWT and build user DTO ─────────────────────────────
 
-        // Option A: Redirect the SPA with the token
-        if (!string.IsNullOrEmpty(returnUrl))
+        var token = _tokenService.GenerateJwtToken(user);
+        var userDto = await BuildUserDtoAsync(user);
+
+        string baseUrl = _configuration.GetValue<string>("Application:BaseUrl")!;
+
+        var userJson = JsonSerializer.Serialize(userDto);
+        var userEncoded = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(userJson));
+
+        // ─── 6. Save token ──────────────────────────────────────────────────
+
+        try
         {
-            var separator = returnUrl.Contains('?') ? "&" : "?";
-            var target = $"{returnUrl}{separator}token={appToken.Token}"
-                       + $"&isNewUser={isNewUser}"
-                       + (!string.IsNullOrEmpty(productId) ? $"&productId={productId}" : "");
-            return Redirect(target);
+            var saveToken = new UserToken
+            {
+                UserId = user.Id.ToString(),
+                TenantId = user.TenantId.ToString(),
+                AccessToken = token ?? string.Empty,
+                RefreshToken = refreshToken,
+                IdToken = "",
+                AccessTokenExpiresUtc = tokenExpiresAt,
+                IsActive = true,
+                CreatedUtc = DateTime.UtcNow,
+                UpdatedUtc = DateTime.UtcNow
+            };
+
+            await _tokenStorageService.SaveOrUpdateTokenAsync(saveToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "HandleSsoComplete => Failed to save token");
         }
 
-        // Option B: Return JSON
-        return Ok(new
-        {
-            success = true,
-            token = appToken.Token,
-            expiresAt = appToken.ExpiresAt,
-            user = new
-            {
-                objectId,
-                email,
-                displayName,
-                tenantId
-            },
-            isNewUser,
-            role = defaultRole,
-            productId
-        });
+        // ─── 7. Redirect to SPA ────────────────────────────────────────────
+
+        var redirectUrl = $"{baseUrl}/sso-login?token={token}&user={userEncoded}";
+        return Redirect(redirectUrl);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ... your other existing actions go here (register, logout, etc.)
+    //
+    // Also keep your existing private helper methods:
+    //   - ExtractCompanyFromEmail(string email)
+    //   - GenerateUniqueIdentifier(string companyName)
+    //   - CreateDefaultRolesAsync(Guid tenantId)
+    //   - CreateSubscriptionForTenantAsync(Guid tenantId, Guid productId)
+    //   - LogLoginAttemptAsync(...)
+    //   - BuildUserDtoAsync(User user)
     // ═══════════════════════════════════════════════════════════════════════════
 }
