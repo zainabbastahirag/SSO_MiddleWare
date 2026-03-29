@@ -66,11 +66,12 @@ public class AuthController : ControllerBase
         [FromQuery] string? role = null,
         [FromQuery] string? productId = null)
     {
-        var redirectUri = Url.Action(
-            nameof(HandleSsoComplete),
-            "Auth",
-            new { role, productId },
-            Request.Scheme);
+        var qs = new List<string>();
+        if (!string.IsNullOrEmpty(role)) qs.Add($"role={Uri.EscapeDataString(role)}");
+        if (!string.IsNullOrEmpty(productId)) qs.Add($"productId={Uri.EscapeDataString(productId)}");
+        var query = qs.Count > 0 ? "?" + string.Join("&", qs) : "";
+
+        var redirectUri = $"{Request.Scheme}://{Request.Host}/auth/sso/complete{query}";
 
         _logger.LogInformation("SSO login started. After auth, redirecting to: {RedirectUri}", redirectUri);
 
