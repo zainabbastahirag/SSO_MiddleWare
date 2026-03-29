@@ -23,15 +23,14 @@ var builder = WebApplication.CreateBuilder(args);
 // CONFIGURATION
 // ═══════════════════════════════════════════════════════════════════════════════
 
+// Bind EntraIdSettings from the AgOneSso section so every service that injects
+// IOptions<EntraIdSettings> (e.g. B2CAuthenticationService) receives the same
+// Instance, TenantId, ClientId, ClientSecret used by the OIDC middleware.
 builder.Services.Configure<EntraIdSettings>(
-    builder.Configuration.GetSection(EntraIdSettings.SectionName));
+    builder.Configuration.GetSection("AgOneSso"));
 
 builder.Services.Configure<JwtSettings>(
     builder.Configuration.GetSection(JwtSettings.SectionName));
-
-var entraIdSettings = builder.Configuration
-    .GetSection(EntraIdSettings.SectionName)
-    .Get<EntraIdSettings>() ?? new EntraIdSettings();
 
 var jwtSection = builder.Configuration.GetSection("Jwt");
 var agOneSso = builder.Configuration.GetSection("AgOneSso");
