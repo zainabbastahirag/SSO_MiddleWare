@@ -216,11 +216,9 @@ builder.Services.AddAuthentication(options =>
     options.ClientSecret = ssoClientSecret;
     options.ResponseType = OpenIdConnectResponseType.Code;
     options.ResponseMode = OpenIdConnectResponseMode.Query;
+    options.UsePkce = true;
     options.SaveTokens = true;
 
-    // Dedicated OIDC middleware callback — must NOT collide with
-    // AuthController's [HttpGet("sso/callback")] at /api/auth/sso/callback.
-    // Register /signin-oidc as a redirect URI in your Entra ID app registration.
     options.CallbackPath = "/signin-oidc";
 
     if (isLocalDev)
@@ -251,12 +249,25 @@ builder.Services.AddAuthentication(options =>
     {
         OnRedirectToIdentityProvider = ctx =>
         {
-            Console.WriteLine($"Redirecting to IDP: {ctx.ProtocolMessage.RedirectUri}");
+            var returnUrl = ctx.Properties.RedirectUri;
+            var logger = ctx.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+            logger.LogInformation("OIDC redirecting to IDP. Return URL after login: {ReturnUrl}", returnUrl);
+            return Task.CompletedTask;
+        },
+        OnTokenValidated = ctx =>
+        {
+            var logger = ctx.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+            var email = ctx.Principal?.FindFirst("preferred_username")?.Value
+                     ?? ctx.Principal?.FindFirst("email")?.Value;
+            var oid   = ctx.Principal?.FindFirst("oid")?.Value
+                     ?? ctx.Principal?.FindFirst("sub")?.Value;
+            logger.LogInformation("OIDC token validated — User: {Email}, Oid: {Oid}", email, oid);
             return Task.CompletedTask;
         },
         OnRemoteFailure = ctx =>
         {
-            Console.WriteLine($"OIDC remote failure: {ctx.Failure?.Message}");
+            var logger = ctx.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+            logger.LogError(ctx.Failure, "OIDC remote failure: {Message}", ctx.Failure?.Message);
             ctx.HandleResponse();
             ctx.Response.StatusCode = 400;
             return ctx.Response.WriteAsync($"SSO login failed: {ctx.Failure?.Message}");
