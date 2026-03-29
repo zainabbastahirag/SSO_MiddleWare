@@ -217,7 +217,11 @@ builder.Services.AddAuthentication(options =>
     options.ResponseType = OpenIdConnectResponseType.Code;
     options.ResponseMode = OpenIdConnectResponseMode.Query;
     options.SaveTokens = true;
-    options.CallbackPath = "/api/auth/sso/callback";
+
+    // Dedicated OIDC middleware callback — must NOT collide with
+    // AuthController's [HttpGet("sso/callback")] at /api/auth/sso/callback.
+    // Register /signin-oidc as a redirect URI in your Entra ID app registration.
+    options.CallbackPath = "/signin-oidc";
 
     if (isLocalDev)
     {
@@ -259,7 +263,9 @@ builder.Services.AddAuthentication(options =>
         }
     };
 
-    options.SkipUnrecognizedRequests = false;
+    // Allow requests to paths that don't match CallbackPath to pass through
+    // to MVC routing without the OIDC middleware trying to handle them.
+    options.SkipUnrecognizedRequests = true;
 })
 .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
 {
