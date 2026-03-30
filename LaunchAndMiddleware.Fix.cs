@@ -16,7 +16,6 @@ public IActionResult Launch(string productCode, [FromQuery] string token)
     if (productCode == "AGONEHIRE")
         return Redirect(launchUrl);
 
-    // POST to the product's dedicated token endpoint — not the root
     var postUrl = $"{launchUrl.TrimEnd('/')}/auth/token";
 
     var html = $@"<!DOCTYPE html>
@@ -32,32 +31,31 @@ public IActionResult Launch(string productCode, [FromQuery] string token)
 
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// PART 2: Product middleware — add this at the TOP of InvokeAsync
-//
-// This is the only middleware change. 10 lines. It catches the POST,
-// sets the cookie, and redirects to "/" which loads the Blazor app normally.
+// PART 2: Add this controller to each product app. Zero middleware changes.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// Add this at the very beginning of your InvokeAsync method:
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
-if (ctx.Request.Path.StartsWithSegments("/auth/token") &&
-    ctx.Request.Method == "POST" &&
-    ctx.Request.HasFormContentType)
+[Route("auth")]
+[AllowAnonymous]
+public class TokenHandoffController : Controller
 {
-    var token = ctx.Request.Form["token"].FirstOrDefault();
-    if (!string.IsNullOrEmpty(token))
+    [HttpPost("token")]
+    public IActionResult ReceiveToken([FromForm] string token)
     {
-        ctx.Response.Cookies.Append(_opts.SessionCookieName, token, new CookieOptions
+        if (!string.IsNullOrEmpty(token))
         {
-            HttpOnly = true,
-            Secure = true,
-            SameSite = SameSiteMode.Lax,
-            Path = "/",
-            MaxAge = TimeSpan.FromHours(8)
-        });
-    }
-    ctx.Response.Redirect("/");
-    return;
-}
+            Response.Cookies.Append("agone_session", token, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Lax,
+                Path = "/",
+                MaxAge = TimeSpan.FromHours(8)
+            });
+        }
 
-// ... rest of your existing InvokeAsync continues here ...
+        return Redirect("/");
+    }
+}
