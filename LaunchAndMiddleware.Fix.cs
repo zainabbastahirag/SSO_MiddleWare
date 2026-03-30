@@ -1,9 +1,18 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// PART 1: Launch action (AGOne central)
+// Launch action (AGOne central)
 //
-// Returns a self-posting HTML form instead of a redirect. The token is in the
-// POST body — never in the URL, never in browser history, never in server logs,
-// never in referrer headers.
+// Since AGOne and AGOne Work are on the SAME domain (agone.aventragroup.com),
+// cookies are shared. No need for POST forms or query string tokens.
+//
+// Flow:
+//   1. Launch sets the session cookie (readable by the product middleware)
+//   2. Redirects to the product URL with a plain GET (no token in URL)
+//   3. Product middleware reads the token from the cookie — done
+//
+// This works because:
+//   - Same domain = same cookie jar
+//   - agone.aventragroup.com/api/auth/launch sets a cookie with Path=/
+//   - agone.aventragroup.com/app-onework reads the same cookie
 // ═══════════════════════════════════════════════════════════════════════════════
 
 [HttpGet("launch/{productCode}")]
@@ -22,56 +31,35 @@ public IActionResult Launch(string productCode, [FromQuery] string token)
         return Redirect(launchUrl);
     }
 
-    var html = $@"
-<!DOCTYPE html>
-<html>
-<body>
-    <form id=""f"" method=""POST"" action=""{System.Net.WebUtility.HtmlEncode(launchUrl)}"">
-        <input type=""hidden"" name=""token"" value=""{System.Net.WebUtility.HtmlEncode(token)}"" />
-    </form>
-    <script>document.getElementById('f').submit();</script>
-</body>
-</html>";
+    // Set the session cookie that the product middleware will read.
+    // Works because AGOne central and all products share the same domain.
+    var cookieName = _configuration["AgOneSso:SessionCookieName"] ?? "agone_session";
 
-    return Content(html, "text/html");
-}
-
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// PART 2: Product middleware ExtractToken — add ONE check for POST form body
-//
-// The ONLY change: add 5 lines between the cookie check and the return.
-// Everything else stays exactly the same.
-// ═══════════════════════════════════════════════════════════════════════════════
-
-private (string? token, Src source) ExtractToken(HttpContext ctx)
-{
-    // 1. Authorization: Bearer xxx  (Blazor WASM API calls)
-    var auth = ctx.Request.Headers.Authorization.FirstOrDefault();
-    if (auth?.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) == true)
+    Response.Cookies.Append(cookieName, token, new CookieOptions
     {
-        var t = auth["Bearer ".Length..].Trim();
-        if (!string.IsNullOrEmpty(t)) return (t, Src.Header);
-    }
+        HttpOnly = true,
+        Secure = true,
+        SameSite = SameSiteMode.Lax,
+        Path = "/",
+        MaxAge = TimeSpan.FromHours(8)
+    });
 
-    // 2. Session cookie  (subsequent requests after first launch)
-    if (ctx.Request.Cookies.TryGetValue(_opts.SessionCookieName, out var sc) && !string.IsNullOrEmpty(sc))
-        return (sc, Src.Session);
-
-    // 3. POST form body (first request — AGOne launches product via auto-POST form)
-    if (ctx.Request.Method == "POST" &&
-        ctx.Request.HasFormContentType &&
-        ctx.Request.Form.TryGetValue("token", out var ft) &&
-        !string.IsNullOrEmpty(ft.FirstOrDefault()))
-        return (ft.FirstOrDefault()!, Src.Query);
-
-    return (null, Src.None);
+    // Plain GET redirect — no token in URL, no POST form needed
+    return Redirect(launchUrl);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// IMPORTANT: After ExtractToken returns a token from the POST form, your
-// existing middleware logic should set the session cookie and redirect to "/"
-// (stripping the POST body). This is the same thing it already does when it
-// reads from query string. The token is in the POST body for exactly ONE
-// request, then it lives in the cookie for all subsequent requests.
+// Product middleware ExtractToken — NO CHANGES NEEDED
+//
+// The middleware already reads from the session cookie:
+//
+//   if (ctx.Request.Cookies.TryGetValue(_opts.SessionCookieName, out var sc)
+//       && !string.IsNullOrEmpty(sc))
+//       return (sc, Src.Session);
+//
+// Since Launch set that same cookie (same domain, Path=/), the middleware
+// will find the token in the cookie on the very first request to the product.
+//
+// You can now REMOVE the query string logic from ExtractToken if you want,
+// since no product receives tokens via query string anymore.
 // ═══════════════════════════════════════════════════════════════════════════════
