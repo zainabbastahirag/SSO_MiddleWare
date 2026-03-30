@@ -1,0 +1,555 @@
+@page "/admin/my-products"
+@layout AdminLayout
+@using System.Linq
+@inject ISubscriptionService SubscriptionService
+@inject IProductService ProductService
+@inject IAuthService AuthService
+@inject IAGAuthorizationService AuthorizationService
+@inject IProductLaunchService ProductLaunchService
+@inject NavigationManager Navigation
+@inject ISettingsService SettingsService
+
+<PageTitle>My Products - AGOne</PageTitle>
+
+@if (!_isMGateUser)
+{
+    <div class="my-products-page">
+        <div class="page-header">
+            <div>
+                <h1 class="page-title">My Products</h1>
+                <p class="page-subtitle">Access and manage your subscribed products</p>
+            </div>
+            <a href="/products" class="btn-primary">
+                Explore More Products
+            </a>
+        </div>
+
+        <div class="products-section">
+            <h2 class="section-title">Subscribed Products</h2>
+            <div class="products-grid">
+                @if (_activeSubscriptions.Count == 0)
+                {
+                    <div class="empty-state">
+                        <p>No active subscriptions. Explore products to get started!</p>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var sub in _activeSubscriptions)
+                    {
+                        <div class="product-card subscribed">
+                            <div class="product-header">
+                                <div class="product-icon @sub.ColorClass">
+                                    <span>@sub.Initial</span>
+                                </div>
+                                <div class="product-info">
+                                    <h3 class="product-name">@sub.ProductName</h3>
+                                    <span class="product-plan">@sub.PlanName Plan</span>
+                                </div>
+                                <span class="status-badge active">Active</span>
+                            </div>
+                            <p class="product-desc">@sub.Description</p>
+                            <div class="subscription-details">
+                                <div class="detail-item">
+                                    <span class="detail-label">Users</span>
+                                    <span class="detail-value">@sub.UsedLicenses / @sub.MaxLicenses</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Next Billing</span>
+                                    <span class="detail-value">@sub.NextBilling</span>
+                                </div>
+                            </div>
+                            <div class="usage-bar-container">
+                                <div class="usage-header">
+                                    <span>License Usage</span>
+                                    <span>@sub.UsagePercent%</span>
+                                </div>
+                                <div class="usage-bar">
+                                    <div class="usage-fill @sub.UsageColor" style="width: @(sub.UsagePercent)%"></div>
+                                </div>
+                            </div>
+                            <div class="product-actions">
+                                <button class="btn-primary" @onclick="@(() => LaunchProductAsync(sub.ProductCode))">Launch</button>
+                                <button class="btn-outline" @onclick="@(() => ManageSubscription(sub.SubscriptionId))">Manage</button>
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+
+        @if (_availableProducts.Count > 0 && (_isPlatformLevel || AuthorizationService.IsTenantAdmin(_userRoles)))
+        {
+            <div class="products-section">
+                <h2 class="section-title">Explore More Products</h2>
+                <p class="section-subtitle">Discover additional products to enhance your business</p>
+                <div class="products-grid">
+                    @foreach (var prod in _availableProducts)
+                    {
+                        <div class="product-card available">
+                            <div class="product-header">
+                                <div class="product-icon @prod.ColorClass faded">
+                                    <span>@prod.Initial</span>
+                                </div>
+                                <div class="product-info">
+                                    <h3 class="product-name">@prod.Name</h3>
+                                    <span class="product-price">From $@prod.Price/user/month</span>
+                                </div>
+                            </div>
+                            <p class="product-desc">@prod.Description</p>
+                            <div class="product-features">
+                                @foreach (var tag in prod.Tags)
+                                {
+                                    <span class="feature-tag">@tag</span>
+                                }
+                            </div>
+                            <div class="product-actions">
+                                <a href="/products/@prod.Id" class="btn-outline full-width">Learn More</a>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}
+else
+{
+    @* ════════════════════════════════════════════════════════════════════════ *@
+    @* MGATE VIEW — matches Figma "My Product" design                        *@
+    @* ════════════════════════════════════════════════════════════════════════ *@
+    <div class="mp-page">
+        <div class="mp-header">
+            <h1>My Product</h1>
+            <p>View and launch all your accessible products in one place</p>
+        </div>
+
+        <div class="mp-grid">
+            @foreach (var sub in _activeSubscriptions)
+            {
+                <div class="mp-card">
+                    <div class="mp-card-top">
+                        <div class="mp-logo">
+                            @{
+                                var logoUrl = GetProductLogo(sub.ProductCode);
+                            }
+                            @if (!string.IsNullOrEmpty(logoUrl))
+                            {
+                                <img src="@logoUrl" alt="@sub.ProductName" />
+                            }
+                            else
+                            {
+                                <div class="mp-logo-fallback">
+                                    <span class="mp-logo-text">AG</span>
+                                    <span class="mp-logo-sub">ONE</span>
+                                    <span class="mp-logo-label">Work</span>
+                                </div>
+                            }
+                        </div>
+                        <div class="mp-card-info">
+                            <h3>@sub.ProductName</h3>
+                            <p>@sub.Description</p>
+                        </div>
+                    </div>
+                    <button class="mp-launch-btn" @onclick="@(() => LaunchProductInNewTabAsync(sub.ProductCode))">
+                        Launch
+                    </button>
+                </div>
+            }
+        </div>
+
+        <div class="mp-footer">
+            <p>Copyright &copy; @DateTime.Now.Year Aventra Group. All rights reserved.</p>
+        </div>
+    </div>
+}
+
+<style>
+    /* ════════════════════════════════════════════════════════════════════════ */
+    /* MGATE / MY PRODUCT VIEW — Figma design                                */
+    /* ════════════════════════════════════════════════════════════════════════ */
+    .mp-page {
+        min-height: calc(100vh - 72px);
+        display: flex;
+        flex-direction: column;
+        background: #f8f9fc;
+    }
+
+    .mp-header {
+        margin-bottom: 32px;
+    }
+
+    .mp-header h1 {
+        font-size: 26px;
+        font-weight: 800;
+        color: #0f172a;
+        margin: 0 0 4px;
+    }
+
+    .mp-header p {
+        font-size: 15px;
+        color: #64748b;
+        margin: 0;
+    }
+
+    .mp-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 20px;
+        flex: 1;
+    }
+
+    .mp-card {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        transition: box-shadow 0.2s, border-color 0.2s;
+        height: fit-content;
+    }
+
+    .mp-card:hover {
+        border-color: #c7d2fe;
+        box-shadow: 0 4px 24px rgba(99, 102, 241, 0.08);
+    }
+
+    .mp-card-top {
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+        margin-bottom: 20px;
+    }
+
+    .mp-logo {
+        width: 52px;
+        height: 52px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #e0e7ff, #c7d2fe);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        overflow: hidden;
+    }
+
+    .mp-logo img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        padding: 4px;
+    }
+
+    .mp-logo-fallback {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        line-height: 1;
+    }
+
+    .mp-logo-text {
+        font-size: 11px;
+        font-weight: 800;
+        color: #4338ca;
+        letter-spacing: -0.5px;
+    }
+
+    .mp-logo-sub {
+        font-size: 8px;
+        font-weight: 700;
+        color: #6366f1;
+        margin-top: -1px;
+    }
+
+    .mp-logo-label {
+        font-size: 7px;
+        font-weight: 600;
+        color: #818cf8;
+        background: #eef2ff;
+        padding: 1px 6px;
+        border-radius: 3px;
+        margin-top: 2px;
+    }
+
+    .mp-card-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .mp-card-info h3 {
+        font-size: 15px;
+        font-weight: 700;
+        color: #0f172a;
+        margin: 0 0 4px;
+        line-height: 1.3;
+    }
+
+    .mp-card-info p {
+        font-size: 13px;
+        color: #64748b;
+        margin: 0;
+        line-height: 1.4;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .mp-launch-btn {
+        width: fit-content;
+        padding: 10px 36px;
+        border: none;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        color: #fff;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        letter-spacing: 0.01em;
+    }
+
+    .mp-launch-btn:hover {
+        background: linear-gradient(135deg, #4f46e5, #7c3aed);
+        box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+        transform: translateY(-1px);
+    }
+
+    .mp-launch-btn:active {
+        transform: translateY(0);
+    }
+
+    .mp-footer {
+        margin-top: auto;
+        padding-top: 48px;
+        padding-bottom: 24px;
+        text-align: center;
+    }
+
+    .mp-footer p {
+        font-size: 13px;
+        color: #94a3b8;
+        margin: 0;
+    }
+
+    @@media (max-width: 1200px) {
+        .mp-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+
+    @@media (max-width: 900px) {
+        .mp-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @@media (max-width: 600px) {
+        .mp-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ════════════════════════════════════════════════════════════════════════ */
+    /* STANDARD VIEW (non-MGate)                                              */
+    /* ════════════════════════════════════════════════════════════════════════ */
+    .my-products-page { padding: 0; }
+    .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; }
+    .page-title { font-size: 28px; font-weight: 700; color: #111827; margin-bottom: 4px; }
+    .page-subtitle { font-size: 14px; color: #6B7280; }
+    .products-section { margin-bottom: 40px; }
+    .section-title { font-size: 18px; font-weight: 600; color: #111827; margin-bottom: 8px; }
+    .section-subtitle { font-size: 14px; color: #6B7280; margin-bottom: 16px; }
+    .products-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .empty-state { grid-column: 1 / -1; text-align: center; padding: 40px; background: #F9FAFB; border-radius: 12px; color: #6B7280; }
+    .product-card { background: white; border: 1px solid #E5E7EB; border-radius: 12px; padding: 20px; transition: all 0.2s; }
+    .product-card:hover { box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1); }
+    .product-card.subscribed { border-color: #10B981; border-width: 2px; }
+    .product-card.available { opacity: 0.9; }
+    .product-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+    .product-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 18px; flex-shrink: 0; }
+    .product-icon.faded { opacity: 0.7; }
+    .product-icon.bg-blue { background: linear-gradient(135deg, #3B82F6, #1D4ED8); }
+    .product-icon.bg-purple { background: linear-gradient(135deg, #8B5CF6, #6D28D9); }
+    .product-icon.bg-green { background: linear-gradient(135deg, #10B981, #059669); }
+    .product-icon.bg-orange { background: linear-gradient(135deg, #F97316, #EA580C); }
+    .product-info { flex: 1; }
+    .product-name { font-weight: 600; color: #111827; margin-bottom: 2px; }
+    .product-plan { font-size: 12px; color: #6B7280; }
+    .product-price { font-size: 12px; color: #3B82F6; font-weight: 500; }
+    .status-badge { display: flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 9999px; font-size: 12px; font-weight: 500; }
+    .status-badge.active { background: #D1FAE5; color: #059669; }
+    .product-desc { font-size: 13px; color: #6B7280; margin-bottom: 16px; line-height: 1.5; }
+    .subscription-details { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+    .detail-item { display: flex; flex-direction: column; }
+    .detail-label { font-size: 11px; color: #9CA3AF; text-transform: uppercase; }
+    .detail-value { font-size: 14px; font-weight: 600; color: #111827; }
+    .usage-bar-container { margin-bottom: 16px; }
+    .usage-header { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 12px; color: #6B7280; }
+    .usage-bar { height: 8px; background: #E5E7EB; border-radius: 4px; overflow: hidden; }
+    .usage-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+    .usage-fill.green { background: #10B981; }
+    .usage-fill.yellow { background: #F59E0B; }
+    .usage-fill.red { background: #EF4444; }
+    .product-features { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+    .feature-tag { padding: 4px 10px; background: #F3F4F6; color: #6B7280; border-radius: 6px; font-size: 12px; }
+    .product-actions { display: flex; gap: 8px; }
+    .product-actions .btn-primary, .product-actions .btn-outline { flex: 1; }
+    .btn-outline.full-width { width: 100%; justify-content: center; }
+</style>
+
+@code {
+    private List<SubscriptionViewModel> _activeSubscriptions = new();
+    private List<ProductViewModel> _availableProducts = new();
+    private IEnumerable<string>? _userRoles;
+    private List<Guid> _subscribedProductIds = new();
+    private bool _isPlatformLevel = false;
+    private UserDto? currentUser;
+    private bool _isMGateUser = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        try
+        {
+            currentUser = await AuthService.GetCurrentUserAsync();
+
+            var allowedMGateUserIds = await SettingsService.GetMGateAllowedUserIdsAsync();
+            var currentUserId = currentUser?.Id.ToString().ToUpperInvariant() ?? "";
+            _isMGateUser = allowedMGateUserIds.Any(id => id.ToUpperInvariant() == currentUserId);
+
+            _userRoles = currentUser?.Roles ?? new List<string>();
+            _isPlatformLevel = AuthorizationService.CanSeeAllProducts(_userRoles);
+
+            var products = await ProductService.GetAllAsync();
+            var subscriptions = await SubscriptionService.GetMySubscriptionsAsync();
+
+            _subscribedProductIds = subscriptions.Select(s => s.ProductId).ToList();
+
+            ProcessData(products, subscriptions);
+        }
+        catch (Exception ex)
+        {
+            LoadSampleData();
+        }
+    }
+
+    private void ProcessData(List<ProductDto> products, List<SubscriptionDto> subscriptions)
+    {
+        var activeSubProductIds = new HashSet<Guid>();
+
+        foreach (var sub in subscriptions.Where(s => s.Status == "Active"))
+        {
+            activeSubProductIds.Add(sub.ProductId);
+            var product = products.FirstOrDefault(p => p.Id == sub.ProductId);
+
+            _activeSubscriptions.Add(new SubscriptionViewModel
+            {
+                SubscriptionId = sub.Id,
+                ProductId = sub.ProductId,
+                ProductCode = product?.Code ?? "",
+                ProductName = sub.ProductName ?? product?.Name ?? "Product",
+                Description = product?.ShortDescription ?? "Product description",
+                PlanName = sub.PlanName ?? "Standard",
+                UsedLicenses = sub.UsedLicenses,
+                MaxLicenses = sub.MaxLicenses,
+                NextBilling = sub.EndDate?.ToString("MMM dd, yyyy") ?? "N/A",
+                Initial = (product?.Name ?? "P").Substring(0, 1),
+                ColorClass = GetColorClass(product?.Code ?? "")
+            });
+        }
+
+        if (_isPlatformLevel || AuthorizationService.IsTenantAdmin(_userRoles))
+        {
+            foreach (var product in products.Where(p => !activeSubProductIds.Contains(p.Id)))
+            {
+                _availableProducts.Add(new ProductViewModel
+                {
+                    Id = product.Id,
+                    Code = product.Code ?? "",
+                    Name = product.Name,
+                    Description = product.ShortDescription ?? "Product description",
+                    Price = $"{product.StartingPrice:F2}",
+                    Initial = product.Name.Substring(0, 1),
+                    ColorClass = GetColorClass(product.Code ?? ""),
+                    Tags = ParseTags(product.Tags)
+                });
+            }
+        }
+    }
+
+    private void LoadSampleData()
+    {
+        _activeSubscriptions = new List<SubscriptionViewModel>
+        {
+            new() { SubscriptionId = Guid.NewGuid(), ProductId = Guid.NewGuid(), ProductCode = "AGONEANALYTICS", ProductName = "AG ONE Analytics", Description = "Employee Management & Collaborative tools", PlanName = "Professional", UsedLicenses = 35, MaxLicenses = 50, NextBilling = DateTime.Now.AddMonths(3).ToString("MMM dd, yyyy"), Initial = "A", ColorClass = "bg-blue" },
+            new() { SubscriptionId = Guid.NewGuid(), ProductId = Guid.NewGuid(), ProductCode = "AGONESPOTCITY", ProductName = "AG ONE SPOT - City", Description = "Finance AI Report Generation & Analytics", PlanName = "Enterprise", UsedLicenses = 85, MaxLicenses = 200, NextBilling = DateTime.Now.AddMonths(6).ToString("MMM dd, yyyy"), Initial = "S", ColorClass = "bg-purple" },
+            new() { SubscriptionId = Guid.NewGuid(), ProductId = Guid.NewGuid(), ProductCode = "AGONESENTIMENTCITY", ProductName = "AG Sentiment", Description = "Security, Data Library & Compliance Platform", PlanName = "Standard", UsedLicenses = 20, MaxLicenses = 100, NextBilling = DateTime.Now.AddMonths(1).ToString("MMM dd, yyyy"), Initial = "S", ColorClass = "bg-green" },
+            new() { SubscriptionId = Guid.NewGuid(), ProductId = Guid.NewGuid(), ProductCode = "PLANVIEW", ProductName = "Planview", Description = "Learning Centre & Course Management", PlanName = "Professional", UsedLicenses = 45, MaxLicenses = 75, NextBilling = DateTime.Now.AddMonths(2).ToString("MMM dd, yyyy"), Initial = "P", ColorClass = "bg-orange" },
+            new() { SubscriptionId = Guid.NewGuid(), ProductId = Guid.NewGuid(), ProductCode = "AGONESPOTLANDMANAGEMENT", ProductName = "AG ONE Spot - Land Management", Description = "Learning Centre & Course Management", PlanName = "Standard", UsedLicenses = 10, MaxLicenses = 50, NextBilling = DateTime.Now.AddMonths(4).ToString("MMM dd, yyyy"), Initial = "L", ColorClass = "bg-blue" }
+        };
+    }
+
+    private string GetColorClass(string code)
+    {
+        if (code.Contains("Learn")) return "bg-blue";
+        if (code.Contains("Odela")) return "bg-purple";
+        if (code.Contains("HR")) return "bg-green";
+        if (code.Contains("Analytics") || code.Contains("ANALYTICS")) return "bg-orange";
+        if (code.Contains("SPOT") || code.Contains("SENTIMENT") || code.Contains("PLANVIEW")) return "bg-blue";
+        return "bg-blue";
+    }
+
+    private List<string> ParseTags(string? tags)
+    {
+        if (string.IsNullOrEmpty(tags)) return new();
+        return tags.Split(',').Take(3).Select(t => t.Trim()).ToList();
+    }
+
+    private async Task LaunchProductAsync(string code) => await ProductLaunchService.LaunchProductAsync(code);
+    private async Task LaunchProductInNewTabAsync(string code) => await ProductLaunchService.LaunchProductInNewTabAsync(code);
+    private void ManageSubscription(Guid subscriptionId) => Navigation.NavigateTo("/admin/subscriptions/" + subscriptionId);
+
+    private string? GetProductLogo(string code)
+    {
+        if (string.IsNullOrEmpty(code)) return null;
+        return code.ToUpperInvariant() switch
+        {
+            "AGONEANALYTICS" or "AGONE_ANALYTICS" or "ANALYTICS" => "/images/logos/mgate-logo-analytics.png",
+            "AGONESPOTCITY" or "SPOTCITY" => "/images/logos/mgate-logo-spotcity.png",
+            "AGONESENTIMENTCITY" or "SENTIMENTCITY" => "/images/logos/mgate-logo-sentimentcity.png",
+            "AGONESPOTLANDMANAGEMENT" or "SPOTLAND" => "/images/logos/mgate-logo-spotland.png",
+            "PLANVIEW" => "/images/logos/mgate-logo-planview.png",
+            _ => null
+        };
+    }
+
+    public class SubscriptionViewModel
+    {
+        public Guid SubscriptionId { get; set; }
+        public Guid ProductId { get; set; }
+        public string ProductCode { get; set; } = "";
+        public string ProductName { get; set; } = "";
+        public string Description { get; set; } = "";
+        public string PlanName { get; set; } = "";
+        public int UsedLicenses { get; set; }
+        public int MaxLicenses { get; set; }
+        public string NextBilling { get; set; } = "";
+        public string Initial { get; set; } = "";
+        public string ColorClass { get; set; } = "";
+        public int UsagePercent => MaxLicenses == 0 ? 0 : UsedLicenses * 100 / MaxLicenses;
+        public string UsageColor => UsagePercent < 70 ? "green" : UsagePercent < 90 ? "yellow" : "red";
+    }
+
+    public class ProductViewModel
+    {
+        public Guid Id { get; set; }
+        public string Code { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string Description { get; set; } = "";
+        public string Price { get; set; } = "";
+        public string Initial { get; set; } = "";
+        public string ColorClass { get; set; } = "";
+        public List<string> Tags { get; set; } = new();
+    }
+}
