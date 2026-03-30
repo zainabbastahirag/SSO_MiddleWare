@@ -1,0 +1,766 @@
+@page "/admin/tenant-management"
+@layout AdminLayout
+@attribute [Authorize]
+@inject ISnackbar Snackbar
+
+<PageTitle>Tenant Management - AGOne Admin</PageTitle>
+
+<div class="page-header">
+    <h1 class="page-title">Tenant Management</h1>
+    <p class="page-subtitle">Manage your organization profile, tax settings, and currency preferences</p>
+</div>
+
+<!-- Main Tabs -->
+<div class="admin-tabs">
+    <button class="admin-tab @(_activeTab == "company" ? "active" : "")" @onclick='() => SetActiveTab("company")'>
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+        <span>Company Settings</span>
+    </button>
+    <button class="admin-tab @(_activeTab == "sso" ? "active" : "")" @onclick='() => SetActiveTab("sso")'>
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="11" x="3" y="11" rx="2"/><circle cx="12" cy="16" r="1"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+        <span>SSO Configuration</span>
+    </button>
+    <button class="admin-tab @(_activeTab == "api" ? "active" : "")" @onclick='() => SetActiveTab("api")'>
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 12-8.5 8.5c-.83.83-2.17.83-3 0 0 0 0 0 0 0a2.12 2.12 0 0 1 0-3L12 9"/><path d="M17.64 15 22 10.64"/><path d="m20.91 11.7-1.25-1.25c-.6-.6-.93-1.4-.93-2.25v-.86L16.01 4.6a5.56 5.56 0 0 0-3.94-1.64H9l.92.82A6.18 6.18 0 0 1 12 8.4v1.56l2 2h2.47l2.26 1.91"/></svg>
+        <span>API Management</span>
+    </button>
+    <button class="admin-tab @(_activeTab == "audit" ? "active" : "")" @onclick='() => SetActiveTab("audit")'>
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>
+        <span>Audit & Visibility</span>
+    </button>
+    <button class="admin-tab @(_activeTab == "admins" ? "active" : "")" @onclick='() => SetActiveTab("admins")'>
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span>Product Admins</span>
+    </button>
+</div>
+
+@* ═══════════════════════════════════════════════════════════════════════════ *@
+@* COMPANY SETTINGS TAB                                                       *@
+@* ═══════════════════════════════════════════════════════════════════════════ *@
+@if (_activeTab == "company")
+{
+    <div class="sub-tabs">
+        <button class="sub-tab @(_companySubTab == "profile" ? "active" : "")" @onclick='() => _companySubTab = "profile"'>Company Profile</button>
+        <button class="sub-tab @(_companySubTab == "entities" ? "active" : "")" @onclick='() => _companySubTab = "entities"'>Entities & Tax</button>
+    </div>
+
+    @if (_companySubTab == "profile")
+    {
+        <div class="section-header-row">
+            <div>
+                <h2 class="section-title">Company Profile</h2>
+                <p class="section-desc">View and manage your company information</p>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-outline" @onclick="CancelCompanyChanges">Cancel</button>
+                <button class="btn btn-primary" @onclick="SaveCompanyProfile">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg>
+                    Save
+                </button>
+            </div>
+        </div>
+
+        <div class="form-card">
+            <h3 class="form-section-title">Basic Information</h3>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Company Name</label>
+                    <input type="text" @bind="_company.Name" placeholder="Acme Corporation" />
+                </div>
+                <div class="form-group">
+                    <label>Industry</label>
+                    <select @bind="_company.Industry">
+                        <option value="Technology">Technology</option>
+                        <option value="Finance">Finance</option>
+                        <option value="Healthcare">Healthcare</option>
+                        <option value="Manufacturing">Manufacturing</option>
+                        <option value="Retail">Retail</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Company Size</label>
+                    <select @bind="_company.Size">
+                        <option value="1-10">1 - 10 employees</option>
+                        <option value="11-50">11 - 50 employees</option>
+                        <option value="51-200">51 - 200 employees</option>
+                        <option value="201-500">201 - 500 employees</option>
+                        <option value="500+">500+ employees</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Company Description</label>
+                    <textarea rows="3" @bind="_company.Description" placeholder="Leading technology company specializing in enterprise software solutions."></textarea>
+                </div>
+            </div>
+
+            <h3 class="form-section-title" style="margin-top: 32px;">Contact Information</h3>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Website</label>
+                    <input type="url" @bind="_company.Website" placeholder="https://acmecorp.com" />
+                </div>
+                <div class="form-group">
+                    <label>Business Email</label>
+                    <input type="email" @bind="_company.Email" placeholder="contact@acmecorp.com" />
+                </div>
+                <div class="form-group">
+                    <label>Mobile Number</label>
+                    <input type="tel" @bind="_company.Phone" placeholder="+1 123288668" />
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@* ═══════════════════════════════════════════════════════════════════════════ *@
+@* SSO CONFIGURATION TAB                                                      *@
+@* ═══════════════════════════════════════════════════════════════════════════ *@
+else if (_activeTab == "sso")
+{
+    <div class="sso-header-card">
+        <div class="sso-header-left">
+            <h2 class="section-title">Single Sign-On (SSO)</h2>
+            <p class="section-desc">Enable enterprise authentication via SAML 2.0</p>
+        </div>
+        <div class="sso-toggle">
+            <label class="toggle-label">
+                <span>Turn Off SSO</span>
+                <label class="switch">
+                    <input type="checkbox" @bind="_ssoEnabled" />
+                    <span class="slider"></span>
+                </label>
+            </label>
+        </div>
+    </div>
+
+    @if (_ssoEnabled)
+    {
+        <div class="stats-row" style="margin-bottom: 24px;">
+            <div class="stat-badge stat-green">
+                <span class="stat-label">Status</span>
+                <span class="stat-value">Active</span>
+            </div>
+            <div class="stat-badge stat-green">
+                <span class="stat-label">Health</span>
+                <span class="stat-value">Operational</span>
+            </div>
+            <div class="stat-badge stat-blue">
+                <span class="stat-label">Active Users</span>
+                <span class="stat-value">@_ssoActiveUsers</span>
+            </div>
+            <div class="info-banner">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                SSO is currently active. Users from verified domains will be automatically redirected to your Identity Provider for authentication.
+            </div>
+        </div>
+    }
+
+    <div class="section-header-row">
+        <div>
+            <h2 class="section-title">Entra ID / OIDC Settings</h2>
+            <p class="section-desc">Configure your SAML 2.0 Identity Provider settings</p>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-outline" @onclick="CancelSsoChanges">Cancel</button>
+            <button class="btn btn-primary" @onclick="SaveSsoSettings">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg>
+                Save
+            </button>
+        </div>
+    </div>
+
+    <div class="form-card">
+        <div class="info-banner info-blue" style="margin-bottom: 24px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+            You can find these values in your Microsoft Entra ID App Registration
+            <button class="banner-close" @onclick="() => { }">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            </button>
+        </div>
+        <div class="form-stack">
+            <div class="form-group full">
+                <label>Instance URL</label>
+                <input type="url" @bind="_sso.InstanceUrl" placeholder="https://your-entra-id-domain.ciamlogin.com/" />
+            </div>
+            <div class="form-group full">
+                <label>Tenant ID</label>
+                <input type="text" @bind="_sso.TenantId" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+            </div>
+            <div class="form-group full">
+                <label>Client ID</label>
+                <input type="text" @bind="_sso.ClientId" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+            </div>
+        </div>
+    </div>
+}
+
+@* ═══════════════════════════════════════════════════════════════════════════ *@
+@* API MANAGEMENT TAB                                                         *@
+@* ═══════════════════════════════════════════════════════════════════════════ *@
+else if (_activeTab == "api")
+{
+    <div class="section-header-row">
+        <div>
+            <h2 class="section-title">API Keys</h2>
+            <p class="section-desc">Manage API keys for programmatic access</p>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-primary" @onclick="CreateApiKey">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                Add
+            </button>
+        </div>
+    </div>
+
+    <div class="form-card">
+        @if (_apiKeys.Count == 0)
+        {
+            <div class="empty-state">
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><circle cx="15" cy="13" r="1" fill="#cbd5e1" stroke="none"/></svg>
+                <h3>No API Keys Yet</h3>
+                <p>Create an API key to get started.</p>
+            </div>
+        }
+        else
+        {
+            <div class="data-table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Key</th>
+                            <th>Created</th>
+                            <th>Last Used</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var key in _apiKeys)
+                        {
+                            <tr>
+                                <td style="font-weight: 600;">@key.Name</td>
+                                <td><code class="api-key-display">@key.KeyPrefix...@key.KeySuffix</code></td>
+                                <td class="text-muted">@key.CreatedAt.ToString("MMM d, yyyy")</td>
+                                <td class="text-muted">@(key.LastUsedAt?.ToString("MMM d") ?? "Never")</td>
+                                <td>
+                                    <div class="action-buttons">
+                                        <button class="icon-btn edit" title="Edit" @onclick="() => EditApiKey(key)">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/></svg>
+                                        </button>
+                                        <button class="icon-btn delete" title="Revoke" @onclick="() => RevokeApiKey(key)">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+
+    <!-- API Usage Metrics -->
+    <div class="section-header-row" style="margin-top: 32px;">
+        <div>
+            <h2 class="section-title">API Usage Metrics</h2>
+            <p class="section-desc">Monitor API performance and usage statistics</p>
+        </div>
+    </div>
+    <div class="form-card">
+        <div class="empty-state" style="padding: 40px;">
+            <p class="text-muted">Usage metrics will appear once API keys are active.</p>
+        </div>
+    </div>
+
+    <!-- Rate Limits -->
+    <div class="section-header-row" style="margin-top: 32px;">
+        <div>
+            <h2 class="section-title">Rate Limits</h2>
+            <p class="section-desc">Configure API rate limiting policies</p>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-outline" @onclick="EditRateLimit">Edit Limit</button>
+        </div>
+    </div>
+    <div class="form-card">
+        <div class="empty-state">
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><circle cx="15" cy="13" r="1" fill="#cbd5e1" stroke="none"/></svg>
+            <h3>No Rate Limits Set</h3>
+            <p>Configure rate limits after creating an API key</p>
+        </div>
+    </div>
+}
+
+@* ═══════════════════════════════════════════════════════════════════════════ *@
+@* AUDIT & VISIBILITY TAB                                                     *@
+@* ═══════════════════════════════════════════════════════════════════════════ *@
+else if (_activeTab == "audit")
+{
+    <div class="stats-grid four-col">
+        <div class="stat-card">
+            <div class="stat-card-icon stat-icon-blue">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/></svg>
+            </div>
+            <div class="stat-card-content">
+                <span class="stat-card-label">Total Events (7d)</span>
+                <span class="stat-card-value">1,247</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card-icon stat-icon-purple">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+            </div>
+            <div class="stat-card-content">
+                <span class="stat-card-label">User Changes</span>
+                <span class="stat-card-value">89</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card-icon stat-icon-green">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg>
+            </div>
+            <div class="stat-card-content">
+                <span class="stat-card-label">Roles Changes</span>
+                <span class="stat-card-value">34</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card-icon stat-icon-orange">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 12-8.5 8.5c-.83.83-2.17.83-3 0 0 0 0 0 0 0a2.12 2.12 0 0 1 0-3L12 9"/><path d="M17.64 15 22 10.64"/></svg>
+            </div>
+            <div class="stat-card-content">
+                <span class="stat-card-label">API Calls</span>
+                <span class="stat-card-value">1,089</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-card" style="margin-top: 24px;">
+        <div class="audit-header">
+            <div>
+                <h3 style="margin: 0; font-size: 18px; font-weight: 700;">Activity & Audit Log</h3>
+                <p class="section-desc" style="margin: 4px 0 0;">Complete audit trail of all system activities</p>
+            </div>
+        </div>
+
+        <div class="audit-toolbar">
+            <div class="search-input-wrapper">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="search-icon"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                <input type="text" placeholder="Search" class="search-input" @bind="_auditSearch" @bind:event="oninput" />
+            </div>
+            <button class="icon-btn" title="Refresh" @onclick="RefreshAuditLog">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+            </button>
+        </div>
+
+        <div class="data-table-container">
+            <table class="data-table audit-table">
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>User</th>
+                        <th>Type</th>
+                        <th>Action</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var entry in _auditLog)
+                    {
+                        <tr>
+                            <td class="text-muted">@entry.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                            <td>@entry.User</td>
+                            <td><span class="badge badge-purple">@entry.Type</span></td>
+                            <td>@entry.Action</td>
+                            <td class="text-muted text-truncate">@entry.Details</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="table-footer">
+            <span class="text-muted">Showing 1 to @_auditLog.Count of @_auditLog.Count entries</span>
+            <div class="pagination">
+                <button class="page-btn active">1</button>
+            </div>
+        </div>
+    </div>
+}
+
+@* ═══════════════════════════════════════════════════════════════════════════ *@
+@* PRODUCT ADMINS TAB                                                         *@
+@* ═══════════════════════════════════════════════════════════════════════════ *@
+else if (_activeTab == "admins")
+{
+    <div class="stats-grid two-col">
+        <div class="stat-card">
+            <div class="stat-card-icon stat-icon-blue">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+            <div class="stat-card-content">
+                <span class="stat-card-label">Total Product Admins</span>
+                <span class="stat-card-value">@_productAdminData.Sum(p => p.Admins.Count)</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card-icon stat-icon-green">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            </div>
+            <div class="stat-card-content">
+                <span class="stat-card-label">Product Covered</span>
+                <span class="stat-card-value">@_productAdminData.Count(p => p.Admins.Count > 0)/@_productAdminData.Count</span>
+            </div>
+        </div>
+    </div>
+
+    <h2 class="section-title" style="margin-top: 32px;">Product Admin Coverage</h2>
+    <p class="section-desc">Complete audit trail of all system activities</p>
+
+    @foreach (var product in _productAdminData)
+    {
+        <div class="form-card product-admin-card">
+            <div class="product-admin-header">
+                <div class="product-admin-title">
+                    <h3>@product.Name</h3>
+                    <span class="badge badge-blue">@product.Plan</span>
+                    @if (product.Admins.Count < 2)
+                    {
+                        <span class="badge badge-yellow">Warning</span>
+                    }
+                </div>
+                <span class="text-muted">@product.TotalUsers total users · @product.Admins.Count admins assigned</span>
+            </div>
+
+            @if (product.Admins.Count < 2)
+            {
+                <div class="warning-banner">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                    Consider assigning additional admins for better coverage and redundency
+                </div>
+            }
+
+            @foreach (var admin in product.Admins)
+            {
+                <div class="admin-row">
+                    <div class="admin-info">
+                        <div class="admin-avatar" style="background: @admin.AvatarColor;">@admin.Initials</div>
+                        <div>
+                            <div class="admin-name">@admin.Name</div>
+                            <div class="admin-email">@admin.Email</div>
+                        </div>
+                    </div>
+                    <div class="admin-permissions">
+                        @foreach (var perm in admin.Permissions)
+                        {
+                            <span class="badge badge-outline">@perm</span>
+                        }
+                        <button class="icon-btn edit" title="Edit" @onclick="() => EditAdmin(admin)">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/></svg>
+                        </button>
+                        @if (product.Admins.Count > 1)
+                        {
+                            <button class="icon-btn delete" title="Remove" @onclick="() => RemoveAdmin(product, admin)">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
+
+            <div style="text-align: right; margin-top: 16px;">
+                <button class="btn btn-primary btn-sm" @onclick="() => AssignAdmin(product)">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                    Assign Admin
+                </button>
+            </div>
+        </div>
+    }
+}
+
+<style>
+    /* ═══ Layout ═══ */
+    .page-header { margin-bottom: 24px; }
+    .page-title { font-size: 28px; font-weight: 800; color: #0f172a; margin: 0; }
+    .page-subtitle { color: #64748b; margin: 4px 0 0; font-size: 15px; }
+
+    /* ═══ Main Tabs ═══ */
+    .admin-tabs { display: flex; gap: 0; border-bottom: 2px solid #e2e8f0; margin-bottom: 24px; }
+    .admin-tab { display: flex; align-items: center; gap: 8px; padding: 12px 20px; border: none; background: none; color: #64748b; font-size: 14px; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s; }
+    .admin-tab:hover { color: #3b82f6; }
+    .admin-tab.active { color: #3b82f6; border-bottom-color: #3b82f6; font-weight: 600; }
+
+    /* ═══ Sub Tabs ═══ */
+    .sub-tabs { display: flex; gap: 8px; margin-bottom: 24px; }
+    .sub-tab { padding: 8px 16px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: #64748b; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+    .sub-tab.active { background: #eff6ff; color: #3b82f6; border-color: #bfdbfe; font-weight: 600; }
+
+    /* ═══ Section Header ═══ */
+    .section-header-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+    .section-title { font-size: 20px; font-weight: 700; color: #0f172a; margin: 0; }
+    .section-desc { color: #64748b; font-size: 14px; margin: 2px 0 0; }
+    .header-actions { display: flex; gap: 8px; }
+
+    /* ═══ Form Card ═══ */
+    .form-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 28px; margin-bottom: 24px; }
+    .form-section-title { font-size: 16px; font-weight: 700; color: #0f172a; margin: 0 0 20px; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .form-stack { display: flex; flex-direction: column; gap: 20px; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-group.full { grid-column: 1 / -1; }
+    .form-group label { font-size: 13px; font-weight: 600; color: #374151; }
+    .form-group input, .form-group select, .form-group textarea { padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; color: #111827; background: #fff; transition: border-color 0.2s; }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+    .form-group textarea { resize: vertical; font-family: inherit; }
+
+    /* ═══ Buttons ═══ */
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s; }
+    .btn-primary { background: #3b82f6; color: #fff; }
+    .btn-primary:hover { background: #2563eb; }
+    .btn-outline { background: #fff; color: #374151; border: 1px solid #d1d5db; }
+    .btn-outline:hover { background: #f9fafb; border-color: #9ca3af; }
+    .btn-sm { padding: 6px 14px; font-size: 13px; }
+
+    /* ═══ Badges ═══ */
+    .badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; }
+    .badge-blue { background: #eff6ff; color: #3b82f6; }
+    .badge-green { background: #f0fdf4; color: #16a34a; }
+    .badge-yellow { background: #fefce8; color: #ca8a04; }
+    .badge-purple { background: #f5f3ff; color: #7c3aed; }
+    .badge-red { background: #fef2f2; color: #dc2626; }
+    .badge-gray { background: #f1f5f9; color: #64748b; }
+    .badge-outline { background: transparent; color: #6366f1; border: 1px solid #c7d2fe; }
+
+    /* ═══ Stats ═══ */
+    .stats-grid { display: grid; gap: 16px; margin-bottom: 8px; }
+    .stats-grid.four-col { grid-template-columns: repeat(4, 1fr); }
+    .stats-grid.two-col { grid-template-columns: repeat(2, 1fr); }
+    .stat-card { display: flex; align-items: center; gap: 16px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px 24px; }
+    .stat-card-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+    .stat-icon-blue { background: #eff6ff; color: #3b82f6; }
+    .stat-icon-purple { background: #f5f3ff; color: #7c3aed; }
+    .stat-icon-green { background: #f0fdf4; color: #16a34a; }
+    .stat-icon-orange { background: #fff7ed; color: #ea580c; }
+    .stat-card-label { font-size: 13px; color: #64748b; }
+    .stat-card-value { font-size: 28px; font-weight: 800; color: #0f172a; }
+    .stat-card-content { display: flex; flex-direction: column; }
+
+    .stats-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .stat-badge { display: flex; flex-direction: column; padding: 12px 20px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; }
+    .stat-badge.stat-green { border-color: #bbf7d0; }
+    .stat-badge.stat-blue { border-color: #bfdbfe; }
+    .stat-label { font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+    .stat-value { font-size: 16px; font-weight: 700; color: #0f172a; }
+
+    /* ═══ Info / Warning Banners ═══ */
+    .info-banner { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; font-size: 13px; color: #1e40af; flex: 1; }
+    .info-banner.info-blue { background: #eff6ff; border-color: #bfdbfe; color: #1e40af; }
+    .banner-close { background: none; border: none; cursor: pointer; color: #1e40af; margin-left: auto; padding: 4px; }
+    .warning-banner { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: #fefce8; border: 1px solid #fde68a; border-radius: 8px; font-size: 13px; color: #92400e; margin-bottom: 16px; }
+
+    /* ═══ SSO Toggle ═══ */
+    .sso-header-card { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .sso-toggle { display: flex; align-items: center; gap: 12px; }
+    .toggle-label { display: flex; align-items: center; gap: 10px; font-size: 14px; color: #374151; cursor: pointer; }
+    .switch { position: relative; width: 44px; height: 24px; display: inline-block; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; inset: 0; background: #d1d5db; border-radius: 24px; transition: 0.3s; cursor: pointer; }
+    .slider::before { content: ""; position: absolute; height: 18px; width: 18px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: 0.3s; }
+    .switch input:checked + .slider { background: #3b82f6; }
+    .switch input:checked + .slider::before { transform: translateX(20px); }
+
+    /* ═══ Tables ═══ */
+    .data-table-container { overflow-x: auto; }
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table thead { background: #3b82f6; }
+    .data-table th { padding: 12px 16px; text-align: left; font-size: 13px; font-weight: 600; color: #fff; white-space: nowrap; }
+    .data-table td { padding: 14px 16px; font-size: 14px; color: #0f172a; border-bottom: 1px solid #f1f5f9; }
+    .data-table tbody tr:hover { background: #f8fafc; }
+    .audit-table th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .text-muted { color: #64748b; }
+    .text-truncate { max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .table-footer { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; margin-top: 8px; font-size: 13px; }
+    .pagination { display: flex; gap: 4px; }
+    .page-btn { width: 32px; height: 32px; border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .page-btn.active { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+
+    .api-key-display { background: #f1f5f9; padding: 4px 8px; border-radius: 4px; font-size: 13px; color: #475569; }
+    .audit-header { margin-bottom: 16px; }
+    .audit-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .search-input-wrapper { position: relative; }
+    .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; }
+    .search-input { padding: 9px 12px 9px 40px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; width: 300px; }
+    .search-input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+
+    /* ═══ Empty State ═══ */
+    .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; color: #94a3b8; }
+    .empty-state h3 { margin: 16px 0 4px; font-size: 16px; color: #64748b; }
+    .empty-state p { margin: 0; font-size: 14px; }
+
+    /* ═══ Icon Buttons ═══ */
+    .icon-btn { background: none; border: none; cursor: pointer; padding: 6px; border-radius: 6px; color: #64748b; transition: all 0.2s; display: inline-flex; }
+    .icon-btn:hover { background: #f1f5f9; }
+    .icon-btn.edit:hover { color: #3b82f6; }
+    .icon-btn.delete:hover { color: #dc2626; background: #fef2f2; }
+    .action-buttons { display: flex; gap: 4px; }
+
+    /* ═══ Product Admins ═══ */
+    .product-admin-card { margin-bottom: 16px; }
+    .product-admin-header { margin-bottom: 16px; }
+    .product-admin-title { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+    .product-admin-title h3 { margin: 0; font-size: 18px; font-weight: 700; }
+    .admin-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border: 1px solid #e2e8f0; border-radius: 10px; margin-bottom: 10px; }
+    .admin-info { display: flex; align-items: center; gap: 12px; }
+    .admin-avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; font-weight: 700; }
+    .admin-name { font-size: 14px; font-weight: 600; color: #0f172a; }
+    .admin-email { font-size: 13px; color: #64748b; }
+    .admin-permissions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+    @@media (max-width: 768px) {
+        .form-grid { grid-template-columns: 1fr; }
+        .stats-grid.four-col { grid-template-columns: repeat(2, 1fr); }
+        .stats-grid.two-col { grid-template-columns: 1fr; }
+        .admin-row { flex-direction: column; align-items: flex-start; gap: 12px; }
+        .admin-permissions { justify-content: flex-start; }
+    }
+</style>
+
+@code {
+    private string _activeTab = "company";
+    private string _companySubTab = "profile";
+    private string _auditSearch = "";
+    private bool _ssoEnabled = true;
+    private int _ssoActiveUsers = 123;
+
+    private CompanyProfile _company = new();
+    private SsoSettings _sso = new();
+    private List<ApiKeyItem> _apiKeys = new();
+    private List<AuditEntry> _auditLog = new();
+    private List<ProductAdminGroup> _productAdminData = new();
+
+    protected override void OnInitialized()
+    {
+        _company = new CompanyProfile
+        {
+            Name = "Acme Corporation",
+            Industry = "Technology",
+            Size = "11-50",
+            Description = "Leading technology company specializing in enterprise software solutions.",
+            Website = "https://acmecorp.com",
+            Email = "contact@acmecorp.com",
+            Phone = "+1 123288668"
+        };
+
+        _sso = new SsoSettings
+        {
+            InstanceUrl = "",
+            TenantId = "",
+            ClientId = ""
+        };
+
+        _apiKeys = new();
+
+        _auditLog = new List<AuditEntry>
+        {
+            new() { Timestamp = new DateTime(2024, 12, 19, 10, 45, 23), User = "Daniel Lim", Type = "Configuration", Action = "API Key Disabled", Details = "Key disabled due to rotation policy" },
+            new() { Timestamp = new DateTime(2024, 12, 19, 10, 45, 23), User = "Aisha Karim", Type = "Configuration", Action = "SSO Enabled", Details = "SAML activated; IdP: Azure AD; Entity ID: agone.sso" },
+            new() { Timestamp = new DateTime(2024, 12, 19, 10, 45, 23), User = "Aisha Karim", Type = "Configuration", Action = "SSO Mapping Updated", Details = "Updated attribute mapping: email → userPrincipalName" },
+            new() { Timestamp = new DateTime(2024, 12, 19, 10, 45, 23), User = "Mark Lee", Type = "Configuration", Action = "Integration Connected", Details = "Connected Slack integration for AG ONE Safe Alert" },
+            new() { Timestamp = new DateTime(2024, 12, 19, 10, 45, 23), User = "Mark Lee", Type = "Configuration", Action = "Webhook Added", Details = "Endpoint: https://hooks.company.com/agone/work" },
+            new() { Timestamp = new DateTime(2024, 12, 19, 10, 45, 23), User = "System", Type = "Configuration", Action = "Rate Limit Applied", Details = "500 req/min applied to API Key sk_live_11c3..." }
+        };
+
+        _productAdminData = new List<ProductAdminGroup>
+        {
+            new()
+            {
+                Name = "AG ONE Learn", Plan = "Professional", TotalUsers = 45,
+                Admins = new List<AdminUser>
+                {
+                    new() { Name = "Alex Anderson", Email = "name@aventragroup.com", Initials = "AA", AvatarColor = "#f59e0b",
+                        Permissions = new() { "users:manage", "masterdata:manage", "manage:settings", "manage:billings" } }
+                }
+            },
+            new()
+            {
+                Name = "AG ONE Work", Plan = "Professional", TotalUsers = 45,
+                Admins = new List<AdminUser>
+                {
+                    new() { Name = "Sarah Jane", Email = "name@aventragroup.com", Initials = "SJ", AvatarColor = "#8b5cf6",
+                        Permissions = new() { "users:manage", "masterdata:manage", "manage:settings", "manage:billings" } },
+                    new() { Name = "Robert Tim", Email = "name@aventragroup.com", Initials = "RT", AvatarColor = "#06b6d4",
+                        Permissions = new() { "users:manage", "masterdata:manage", "manage:settings" } }
+                }
+            }
+        };
+    }
+
+    private void SetActiveTab(string tab) => _activeTab = tab;
+    private void SaveCompanyProfile() => Snackbar.Add("Company profile saved", Severity.Success);
+    private void CancelCompanyChanges() => Snackbar.Add("Changes discarded", Severity.Info);
+    private void SaveSsoSettings() => Snackbar.Add("SSO settings saved", Severity.Success);
+    private void CancelSsoChanges() => Snackbar.Add("SSO changes discarded", Severity.Info);
+    private void CreateApiKey() => Snackbar.Add("Create new API key", Severity.Info);
+    private void EditApiKey(ApiKeyItem key) => Snackbar.Add($"Edit {key.Name}", Severity.Info);
+    private void RevokeApiKey(ApiKeyItem key) => Snackbar.Add($"Revoke {key.Name}?", Severity.Warning);
+    private void EditRateLimit() => Snackbar.Add("Edit rate limits", Severity.Info);
+    private void RefreshAuditLog() => Snackbar.Add("Audit log refreshed", Severity.Info);
+    private void EditAdmin(AdminUser admin) => Snackbar.Add($"Edit {admin.Name}", Severity.Info);
+    private void RemoveAdmin(ProductAdminGroup product, AdminUser admin) => Snackbar.Add($"Remove {admin.Name} from {product.Name}?", Severity.Warning);
+    private void AssignAdmin(ProductAdminGroup product) => Snackbar.Add($"Assign admin to {product.Name}", Severity.Info);
+
+    public class CompanyProfile
+    {
+        public string Name { get; set; } = "";
+        public string Industry { get; set; } = "Technology";
+        public string Size { get; set; } = "11-50";
+        public string Description { get; set; } = "";
+        public string Website { get; set; } = "";
+        public string Email { get; set; } = "";
+        public string Phone { get; set; } = "";
+    }
+
+    public class SsoSettings
+    {
+        public string InstanceUrl { get; set; } = "";
+        public string TenantId { get; set; } = "";
+        public string ClientId { get; set; } = "";
+    }
+
+    public class ApiKeyItem
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = "";
+        public string KeyPrefix { get; set; } = "";
+        public string KeySuffix { get; set; } = "";
+        public DateTime CreatedAt { get; set; }
+        public DateTime? LastUsedAt { get; set; }
+    }
+
+    public class AuditEntry
+    {
+        public DateTime Timestamp { get; set; }
+        public string User { get; set; } = "";
+        public string Type { get; set; } = "";
+        public string Action { get; set; } = "";
+        public string Details { get; set; } = "";
+    }
+
+    public class ProductAdminGroup
+    {
+        public string Name { get; set; } = "";
+        public string Plan { get; set; } = "";
+        public int TotalUsers { get; set; }
+        public List<AdminUser> Admins { get; set; } = new();
+    }
+
+    public class AdminUser
+    {
+        public string Name { get; set; } = "";
+        public string Email { get; set; } = "";
+        public string Initials { get; set; } = "";
+        public string AvatarColor { get; set; } = "#3b82f6";
+        public List<string> Permissions { get; set; } = new();
+    }
+}
