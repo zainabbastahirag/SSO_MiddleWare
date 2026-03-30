@@ -1,0 +1,481 @@
+@page "/admin/users"
+@using AGOne.Shared
+@layout AdminLayout
+@inject IUserService UserService
+@inject ISubscriptionService SubscriptionService
+@inject IInvitationApiService InvitationApi
+@inject ISnackbar Snackbar
+
+<PageTitle>User Management - AGOne</PageTitle>
+
+<div class="um-page">
+    <!-- Header -->
+    <div class="um-header">
+        <div>
+            <h1 class="um-title">User Management</h1>
+            <p class="um-subtitle">Manage user access to roles, and permissions across all product</p>
+        </div>
+        <div class="um-header-actions">
+            <button class="um-btn-outline" @onclick="OpenBulkInvite">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                Bulk Invite
+            </button>
+            <button class="um-btn-primary" @onclick="OpenCreateDialog">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                Invite User
+            </button>
+        </div>
+    </div>
+
+    @if (_isLoading)
+    {
+        <div style="text-align:center;padding:60px;">
+            <MudProgressCircular Indeterminate="true" />
+            <p style="margin-top:12px;color:#6B7280;">Loading users...</p>
+        </div>
+    }
+    else
+    {
+        <!-- Status Tabs -->
+        <div class="um-tabs">
+            <button class="um-tab @(_statusFilter == "all" ? "active" : "")" @onclick='() => _statusFilter = "all"'>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                All
+            </button>
+            <button class="um-tab @(_statusFilter == "active" ? "active" : "")" @onclick='() => _statusFilter = "active"'>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                Active
+            </button>
+            <button class="um-tab @(_statusFilter == "inactive" ? "active" : "")" @onclick='() => _statusFilter = "inactive"'>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" x2="19.07" y1="4.93" y2="19.07"/></svg>
+                Inactive
+            </button>
+            <button class="um-tab @(_statusFilter == "invited" ? "active" : "")" @onclick='() => _statusFilter = "invited"'>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.2 8.4c.5.38.8.97.8 1.6v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V10c0-.63.3-1.22.8-1.6l8-6a2 2 0 0 1 2.4 0l8 6Z"/><path d="m22 10-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 10"/></svg>
+                Invited
+            </button>
+        </div>
+
+        <!-- Product Filter Pills -->
+        <div class="um-pills">
+            <button class="um-pill @(_selectedProductFilter == null ? "active" : "")" @onclick="() => _selectedProductFilter = null">All Product</button>
+            @foreach (var product in _subscribedProducts)
+            {
+                <button class="um-pill @(_selectedProductFilter == product.Id ? "active" : "")" @onclick="() => _selectedProductFilter = product.Id">@product.Name</button>
+            }
+        </div>
+
+        <!-- Search + Actions -->
+        <div class="um-toolbar">
+            <div class="um-search-wrap">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="um-search-icon"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                <input type="text" class="um-search" placeholder="Search" @bind="_searchTerm" @bind:event="oninput" />
+            </div>
+            <div class="um-toolbar-right">
+                <button class="um-icon-btn" title="Refresh" @onclick="RefreshUsers">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+                </button>
+                <button class="um-icon-btn" title="Settings">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Data Table -->
+        <div class="um-table-card">
+            <div class="um-table-wrap">
+                <table class="um-table">
+                    <thead>
+                        <tr>
+                            <th class="um-th-check"><input type="checkbox" @onchange="ToggleAllSelection" /></th>
+                            <th>User ID</th>
+                            <th>
+                                User Name
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="um-sort-icon"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
+                            </th>
+                            <th>
+                                Roles
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="um-sort-icon"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
+                            </th>
+                            <th>
+                                Status
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="um-sort-icon"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
+                            </th>
+                            <th>
+                                Entity
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="um-filter-icon"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (!FilteredUsers.Any())
+                        {
+                            <tr><td colspan="6" class="um-empty-row">No users found</td></tr>
+                        }
+                        @foreach (var user in FilteredUsers)
+                        {
+                            <tr>
+                                <td class="um-td-check"><input type="checkbox" @bind="user.IsSelected" /></td>
+                                <td class="um-td-id">@GetUserId(user)</td>
+                                <td>
+                                    <div class="um-user-cell">
+                                        <div class="um-avatar" style="background:@GetAvatarColor(user.Email ?? user.FirstName ?? "")">
+                                            @GetInitials(user.FirstName, user.LastName)
+                                        </div>
+                                        <div>
+                                            <div class="um-user-name">@GetFullName(user.FirstName, user.LastName)</div>
+                                            <div class="um-user-email">@(string.IsNullOrEmpty(user.Email) ? "No email" : user.Email)</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="um-roles">
+                                        @foreach (var role in (user.Roles ?? new List<string>()).Take(3))
+                                        {
+                                            <span class="um-role @GetRoleColorClass(role)">@FormatRoleName(role)</span>
+                                        }
+                                    </div>
+                                </td>
+                                <td>
+                                    @{
+                                        var (statusText, statusClass) = GetUserStatus(user);
+                                    }
+                                    <span class="um-status @statusClass">@statusText</span>
+                                </td>
+                                <td class="um-td-entity">@GetEntity(user)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="um-table-footer">
+                <span class="um-showing">Showing 1 to @FilteredUsers.Count() of @FilteredUsers.Count() entries</span>
+                <div class="um-pagination">
+                    <button class="um-page-btn" disabled>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+                    </button>
+                    <button class="um-page-btn active">1</button>
+                    <button class="um-page-btn" disabled>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="um-footer">
+            <p>Copyright &copy; @DateTime.Now.Year Aventra Group. All rights reserved.</p>
+        </div>
+    }
+</div>
+
+@* ═══ INVITE / EDIT DIALOG ═══ *@
+@if (_showDialog)
+{
+    <div class="modal-overlay" @onclick="CloseDialog">
+        <div class="modal-content" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h2>@DialogTitle</h2>
+                <button class="close-btn" @onclick="CloseDialog">&times;</button>
+            </div>
+            <div class="modal-body">
+                @if (!string.IsNullOrEmpty(_dialogError))
+                {
+                    <div class="alert-error">@_dialogError</div>
+                }
+                <div class="form-group">
+                    <label>Email Address *</label>
+                    <input type="email" @bind="_form.Email" placeholder="user@company.com" />
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>First Name</label><input type="text" @bind="_form.FirstName" placeholder="John" /></div>
+                    <div class="form-group"><label>Last Name</label><input type="text" @bind="_form.LastName" placeholder="Doe" /></div>
+                </div>
+                <div class="form-group">
+                    <label>Product Access & Roles *</label>
+                    <p class="form-hint">Select products and assign a role for each</p>
+                    <div class="product-role-list">
+                        @foreach (var product in _subscribedProducts)
+                        {
+                            var isSelected = _form.SelectedProducts.ContainsKey(product.Id);
+                            var rolesForProduct = _allRoles.Where(x => !x.IsSystemRole && x.Name != TenantRoles.Admin).ToList();
+                            <div class="product-role-row @(isSelected ? "selected" : "")">
+                                <label class="product-check">
+                                    <input type="checkbox" checked="@isSelected" @onchange="() => ToggleProduct(product.Id)" />
+                                    <span>@product.Name</span>
+                                </label>
+                                @if (isSelected && rolesForProduct.Any())
+                                {
+                                    <select value="@GetSelectedRoleId(product.Id)" @onchange="e => SetProductRole(product.Id, e)">
+                                        <option value="">Select role...</option>
+                                        @foreach (var role in rolesForProduct) { <option value="@role.Id">@role.Name</option> }
+                                    </select>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+                @if (_isNewInvite)
+                {
+                    <div class="form-group">
+                        <label>Personal Message (optional)</label>
+                        <textarea @bind="_form.PersonalMessage" rows="2" placeholder="Welcome to our organization..."></textarea>
+                    </div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button class="um-btn-outline" @onclick="CloseDialog">Cancel</button>
+                <button class="um-btn-primary" @onclick="SubmitForm" disabled="@_isSaving">
+                    @if (_isSaving) { <span class="spinner"></span> }
+                    @(_isNewInvite ? "Invite User" : "Save Changes")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .um-page { display: flex; flex-direction: column; min-height: calc(100vh - 72px); }
+
+    /* Header */
+    .um-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+    .um-title { font-size: 26px; font-weight: 800; color: #0f172a; margin: 0; }
+    .um-subtitle { font-size: 14px; color: #64748b; margin: 4px 0 0; }
+    .um-header-actions { display: flex; gap: 10px; }
+
+    .um-btn-primary { display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px; border: none; border-radius: 8px; background: #3b82f6; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+    .um-btn-primary:hover { background: #2563eb; }
+    .um-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .um-btn-outline { display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; color: #374151; font-size: 14px; font-weight: 600; cursor: pointer; }
+    .um-btn-outline:hover { background: #f9fafb; }
+
+    /* Tabs */
+    .um-tabs { display: flex; gap: 0; border-bottom: 2px solid #e2e8f0; margin-bottom: 16px; }
+    .um-tab { display: flex; align-items: center; gap: 6px; padding: 10px 18px; border: none; background: none; color: #64748b; font-size: 14px; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s; }
+    .um-tab:hover { color: #3b82f6; }
+    .um-tab.active { color: #3b82f6; border-bottom-color: #3b82f6; font-weight: 600; }
+
+    /* Product pills */
+    .um-pills { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .um-pill { padding: 7px 16px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: #475569; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+    .um-pill:hover { border-color: #93c5fd; color: #2563eb; }
+    .um-pill.active { background: #eff6ff; color: #2563eb; border-color: #93c5fd; font-weight: 600; }
+
+    /* Toolbar */
+    .um-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .um-search-wrap { position: relative; }
+    .um-search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none; }
+    .um-search { padding: 9px 14px 9px 36px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; width: 280px; background: #fff; }
+    .um-search:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+    .um-toolbar-right { display: flex; gap: 6px; }
+    .um-icon-btn { background: #fff; border: 1px solid #d1d5db; border-radius: 8px; padding: 8px; cursor: pointer; color: #64748b; display: flex; align-items: center; }
+    .um-icon-btn:hover { background: #f1f5f9; }
+
+    /* Table */
+    .um-table-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
+    .um-table-wrap { overflow-x: auto; }
+    .um-table { width: 100%; border-collapse: collapse; }
+    .um-table thead { background: #3b82f6; }
+    .um-table th { padding: 12px 16px; text-align: left; font-size: 12px; font-weight: 700; color: #fff; white-space: nowrap; }
+    .um-table td { padding: 14px 16px; font-size: 14px; color: #0f172a; border-bottom: 1px solid #f1f5f9; }
+    .um-table tbody tr:hover { background: #f8fafc; }
+    .um-table tbody tr:last-child td { border-bottom: none; }
+
+    .um-th-check, .um-td-check { width: 40px; text-align: center; }
+    .um-th-check input, .um-td-check input { width: 16px; height: 16px; accent-color: #3b82f6; cursor: pointer; }
+    .um-sort-icon { margin-left: 4px; vertical-align: middle; opacity: 0.7; }
+    .um-filter-icon { margin-left: 4px; vertical-align: middle; opacity: 0.7; }
+
+    .um-td-id { font-weight: 500; color: #475569; white-space: nowrap; }
+    .um-td-entity { color: #475569; white-space: nowrap; }
+    .um-empty-row { text-align: center; padding: 48px 16px !important; color: #94a3b8; }
+
+    .um-user-cell { display: flex; align-items: center; gap: 12px; }
+    .um-avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 600; font-size: 13px; flex-shrink: 0; }
+    .um-user-name { font-weight: 600; color: #0f172a; font-size: 14px; }
+    .um-user-email { font-size: 12px; color: #64748b; }
+
+    /* Roles */
+    .um-roles { display: flex; gap: 6px; flex-wrap: wrap; }
+    .um-role { padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+    .um-role.role-admin { background: #dbeafe; color: #1d4ed8; }
+    .um-role.role-product { background: #ede9fe; color: #6d28d9; }
+    .um-role.role-hr { background: #dbeafe; color: #1e40af; }
+    .um-role.role-finance { background: #e0e7ff; color: #4338ca; }
+    .um-role.role-it { background: #dbeafe; color: #1d4ed8; }
+    .um-role.role-ld { background: #e0e7ff; color: #4338ca; }
+    .um-role.role-manager { background: #ede9fe; color: #6d28d9; }
+    .um-role.role-default { background: #f1f5f9; color: #475569; }
+
+    /* Status */
+    .um-status { display: inline-block; padding: 4px 16px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+    .um-status.st-active { background: #dcfce7; color: #16a34a; }
+    .um-status.st-invited { background: #fef3c7; color: #d97706; }
+    .um-status.st-inactive { background: #f1f5f9; color: #64748b; }
+
+    /* Table footer */
+    .um-table-footer { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-top: 1px solid #f1f5f9; }
+    .um-showing { font-size: 13px; color: #3b82f6; }
+    .um-pagination { display: flex; gap: 4px; }
+    .um-page-btn { width: 32px; height: 32px; border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #64748b; }
+    .um-page-btn.active { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+    .um-page-btn:disabled { opacity: 0.4; cursor: default; }
+
+    /* Footer */
+    .um-footer { margin-top: auto; padding: 32px 0 16px; text-align: center; }
+    .um-footer p { font-size: 13px; color: #94a3b8; margin: 0; }
+
+    /* Modal */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(2px); }
+    .modal-content { background: #fff; border-radius: 12px; width: 100%; max-width: 580px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.15); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid #e2e8f0; }
+    .modal-header h2 { font-size: 18px; font-weight: 700; margin: 0; }
+    .close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: #9ca3af; line-height: 1; }
+    .close-btn:hover { color: #374151; }
+    .modal-body { padding: 24px; }
+    .modal-footer { display: flex; justify-content: flex-end; gap: 12px; padding: 16px 24px; border-top: 1px solid #e2e8f0; }
+
+    .alert-error { padding: 10px 14px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; color: #991b1b; font-size: 13px; margin-bottom: 16px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px; color: #374151; }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; box-sizing: border-box; font-family: inherit; }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+    .form-hint { font-size: 12px; color: #6b7280; margin-bottom: 10px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .product-role-list { display: flex; flex-direction: column; gap: 8px; }
+    .product-role-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 8px; }
+    .product-role-row.selected { border-color: #3b82f6; background: #eff6ff; }
+    .product-check { display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500; font-size: 14px; }
+    .product-check input { width: 16px; height: 16px; accent-color: #3b82f6; }
+    .product-role-row select { width: 170px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; }
+    .spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite; display: inline-block; }
+    @@keyframes spin { to { transform: rotate(360deg); } }
+
+    @@media (max-width: 768px) {
+        .um-header { flex-direction: column; gap: 12px; }
+        .form-row { grid-template-columns: 1fr; }
+        .um-search { width: 100%; }
+    }
+</style>
+
+@code {
+    private bool _isLoading = true;
+    private List<UserDto> _users = new();
+    private List<SubscribedProduct> _subscribedProducts = new();
+    private List<Shared.DTOs.RoleDto> _allRoles = new();
+    private string _searchTerm = "";
+    private string _statusFilter = "all";
+    private Guid? _selectedProductFilter;
+
+    private bool _showDialog;
+    private bool _isNewInvite;
+    private bool _isSaving;
+    private string? _dialogError;
+    private UserDto? _editingUser;
+    private InviteForm _form = new();
+
+    private IEnumerable<UserDto> FilteredUsers
+    {
+        get
+        {
+            var q = _users.AsEnumerable();
+            q = _statusFilter switch
+            {
+                "active" => q.Where(u => u.IsActive),
+                "inactive" => q.Where(u => !u.IsActive && (u.LastLoginAt.HasValue || string.IsNullOrEmpty(u.Email))),
+                "invited" => q.Where(u => !u.IsActive && !string.IsNullOrEmpty(u.Email) && !u.LastLoginAt.HasValue),
+                _ => q
+            };
+            if (_selectedProductFilter.HasValue)
+                q = q.Where(u => u.AssignedProductIds?.Contains(_selectedProductFilter.Value) == true);
+            if (!string.IsNullOrWhiteSpace(_searchTerm))
+                q = q.Where(u =>
+                    (u.FirstName ?? "").Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    (u.LastName ?? "").Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    (u.Email ?? "").Contains(_searchTerm, StringComparison.OrdinalIgnoreCase));
+            return q.OrderBy(u => u.FirstName ?? "");
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isLoading = true;
+        try { var subs = await SubscriptionService.GetMySubscriptionsAsync(); _subscribedProducts = subs.Where(s => s.Status == "Active").Select(s => new SubscribedProduct { Id = s.ProductId, Name = s.ProductName ?? "Product" }).ToList(); } catch { _subscribedProducts = new(); }
+        try { _allRoles = await InvitationApi.GetTenantRolesAsync(); } catch { _allRoles = new(); }
+        try { _users = await UserService.GetAllAsync(); } catch { _users = new(); }
+        _isLoading = false;
+    }
+
+    private async Task RefreshUsers() { _isLoading = true; StateHasChanged(); try { _users = await UserService.GetAllAsync(); } catch { } _isLoading = false; Snackbar.Add("Refreshed", Severity.Info); }
+    private void ToggleAllSelection() { var val = !_users.All(u => u.IsSelected); foreach (var u in _users) u.IsSelected = val; }
+
+    // User display helpers
+    private string GetUserId(UserDto u) => !string.IsNullOrEmpty(u.EmployeeId) ? u.EmployeeId : $"AG-{u.Id.ToString()[..4].ToUpper()}";
+    private string GetEntity(UserDto u) => u.TenantName ?? "AG Malaysia (HQ)";
+    private (string text, string css) GetUserStatus(UserDto u)
+    {
+        if (u.IsActive) return ("Active", "st-active");
+        if (!string.IsNullOrEmpty(u.Email) && !u.LastLoginAt.HasValue) return ("Invited", "st-invited");
+        return ("Inactive", "st-inactive");
+    }
+    private string FormatRoleName(string r) => r switch
+    {
+        "TenantAdmin" => "Tenant Admin",
+        "ProductAdmin" => "Product Admin",
+        "ITSupport" => "IT Support",
+        _ => r
+    };
+    private string GetRoleColorClass(string r) => r switch
+    {
+        "TenantAdmin" => "role-admin",
+        "ProductAdmin" => "role-product",
+        "HR" => "role-hr",
+        "Finance" => "role-finance",
+        "ITSupport" or "IT Support" => "role-it",
+        "L&D" => "role-ld",
+        "Manager" => "role-manager",
+        _ => "role-default"
+    };
+    private static string GetInitials(string? f, string? l) { var a = f?.Trim().FirstOrDefault(); var b = l?.Trim().FirstOrDefault(); return a != default && b != default ? $"{a}{b}" : a != default ? $"{a}" : "?"; }
+    private static string GetFullName(string? f, string? l) { var n = $"{f} {l}".Trim(); return string.IsNullOrEmpty(n) ? "Unnamed" : n; }
+    private string GetAvatarColor(string t) { var c = new[] { "#3B82F6", "#10B981", "#8B5CF6", "#F59E0B", "#EF4444", "#EC4899", "#06B6D4" }; return c[Math.Abs(t.GetHashCode()) % c.Length]; }
+
+    // Dialog
+    private string DialogTitle => _editingUser != null ? "Edit User" : "Invite New User";
+    private void OpenCreateDialog() { _editingUser = null; _isNewInvite = true; _dialogError = null; _form = new(); _showDialog = true; }
+    private void OpenBulkInvite() { Snackbar.Add("Bulk invite coming soon", Severity.Info); }
+    private void CloseDialog() { _showDialog = false; _editingUser = null; _dialogError = null; }
+    private void ToggleProduct(Guid pid) { if (_form.SelectedProducts.ContainsKey(pid)) _form.SelectedProducts.Remove(pid); else _form.SelectedProducts[pid] = Guid.Empty; }
+    private string GetSelectedRoleId(Guid pid) => _form.SelectedProducts.TryGetValue(pid, out var rid) && rid != Guid.Empty ? rid.ToString() : "";
+    private void SetProductRole(Guid pid, ChangeEventArgs e) { if (Guid.TryParse(e.Value?.ToString(), out var rid)) _form.SelectedProducts[pid] = rid; else _form.SelectedProducts[pid] = Guid.Empty; }
+
+    private async Task SubmitForm()
+    {
+        _dialogError = null;
+        if (string.IsNullOrWhiteSpace(_form.Email)) { _dialogError = "Email is required."; return; }
+        if (!_form.SelectedProducts.Any()) { _dialogError = "Select at least one product."; return; }
+        var missing = _form.SelectedProducts.Where(kv => kv.Value == Guid.Empty).Select(kv => _subscribedProducts.FirstOrDefault(p => p.Id == kv.Key)?.Name ?? "").ToList();
+        if (missing.Any()) { _dialogError = $"Select a role for: {string.Join(", ", missing)}"; return; }
+
+        _isSaving = true; StateHasChanged();
+        try
+        {
+            var dto = new CreateInvitationDto
+            {
+                Email = _form.Email.Trim(), FirstName = _form.FirstName?.Trim(), LastName = _form.LastName?.Trim(),
+                ProductRoles = _form.SelectedProducts.Select(kv => new InvitationProductRoleDto { ProductId = kv.Key, RoleId = kv.Value }).ToList(),
+                PersonalMessage = _form.PersonalMessage, ExpirationDays = 7
+            };
+            var result = await InvitationApi.CreateInvitationAsync(dto);
+            if (!result.Success) { _dialogError = result.Message ?? "Failed"; return; }
+            Snackbar.Add($"Invitation sent to {_form.Email}", Severity.Success);
+            CloseDialog();
+        }
+        catch (Exception ex) { _dialogError = $"Error: {ex.Message}"; }
+        finally { _isSaving = false; StateHasChanged(); }
+    }
+
+    private class InviteForm { public string Email { get; set; } = ""; public string? FirstName { get; set; } public string? LastName { get; set; } public string? PersonalMessage { get; set; } public Dictionary<Guid, Guid> SelectedProducts { get; set; } = new(); }
+    private class SubscribedProduct { public Guid Id { get; set; } public string Name { get; set; } = ""; }
+}
