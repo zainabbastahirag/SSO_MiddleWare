@@ -1,0 +1,386 @@
+@* ═══════════════════════════════════════════════════════════════════════════════
+   USER ROLES & PERMISSIONS DIALOG
+   
+   Shows when you click a user row in the User Management table.
+   Displays: user info, prioritized roles (drag to reorder), permissions grid.
+   Actions: Add Role, Edit Priority, Remove Role, View Permissions.
+   
+   Drop this as a component or inline it into your Users.razor page.
+   ═══════════════════════════════════════════════════════════════════════════════ *@
+
+@* ═══ ROLE MANAGEMENT DIALOG — triggered by clicking a user row ═══ *@
+@if (_showRolesDialog)
+{
+    <div class="modal-overlay" @onclick="CloseRolesDialog">
+        <div class="roles-dialog" @onclick:stopPropagation="true">
+            <!-- Header -->
+            <div class="rd-header">
+                <div class="rd-user-info">
+                    <div class="rd-avatar" style="background: @GetAvatarColor(_selectedUser?.Email ?? "")">
+                        @GetInitials(_selectedUser?.FirstName, _selectedUser?.LastName)
+                    </div>
+                    <div>
+                        <h2>@GetFullName(_selectedUser?.FirstName, _selectedUser?.LastName)</h2>
+                        <p>@(_selectedUser?.Email ?? "No email") · @GetEntity(_selectedUser)</p>
+                    </div>
+                </div>
+                <button class="close-btn" @onclick="CloseRolesDialog">&times;</button>
+            </div>
+
+            <!-- Role Tabs -->
+            <div class="rd-tabs">
+                <button class="rd-tab @(_rolesTab == "roles" ? "active" : "")" @onclick='() => _rolesTab = "roles"'>
+                    Roles & Priority
+                </button>
+                <button class="rd-tab @(_rolesTab == "permissions" ? "active" : "")" @onclick='() => _rolesTab = "permissions"'>
+                    Permissions
+                </button>
+            </div>
+
+            <div class="rd-body">
+                @if (_rolesTab == "roles")
+                {
+                    <!-- Add Role Button -->
+                    <div class="rd-section-header">
+                        <div>
+                            <h3>Assigned Roles</h3>
+                            <p class="rd-hint">Drag to reorder. Role #1 is the primary role used at login.</p>
+                        </div>
+                        <button class="um-btn-primary" style="padding: 8px 14px; font-size: 13px;" @onclick="OpenAddRoleDialog">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                            Add Role
+                        </button>
+                    </div>
+
+                    @if (_userRoles.Count == 0)
+                    {
+                        <div class="rd-empty">
+                            <p>No roles assigned. Click "Add Role" to get started.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="rd-role-list">
+                            @foreach (var (role, index) in _userRoles.Select((r, i) => (r, i)))
+                            {
+                                <div class="rd-role-card @(index == 0 ? "primary" : "")">
+                                    <div class="rd-role-left">
+                                        <div class="rd-drag-handle" title="Drag to reorder">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+                                        </div>
+                                        <div class="rd-priority-badge @(index == 0 ? "badge-primary" : "")">
+                                            #@(index + 1)
+                                        </div>
+                                        <div class="rd-role-info">
+                                            <div class="rd-role-name">
+                                                @role.RoleDisplayName
+                                                @if (index == 0)
+                                                {
+                                                    <span class="rd-primary-tag">Primary</span>
+                                                }
+                                                @if (role.IsSystemRole)
+                                                {
+                                                    <span class="rd-system-tag">System</span>
+                                                }
+                                            </div>
+                                            <div class="rd-role-meta">
+                                                @if (role.ProductName != null)
+                                                {
+                                                    <span class="um-role role-product">@role.ProductName</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="um-role role-admin">Platform-wide</span>
+                                                }
+                                                <span class="rd-perm-count">@role.Permissions.Count permissions</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="rd-role-actions">
+                                        <button class="um-icon-btn" title="Move up" disabled="@(index == 0)" @onclick="() => MoveRoleUp(index)">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m18 15-6-6-6 6"/></svg>
+                                        </button>
+                                        <button class="um-icon-btn" title="Move down" disabled="@(index == _userRoles.Count - 1)" @onclick="() => MoveRoleDown(index)">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+                                        </button>
+                                        @if (!role.IsSystemRole)
+                                        {
+                                            <button class="um-icon-btn" style="color: #dc2626;" title="Remove role" @onclick="() => ConfirmRemoveRole(role)">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                                            </button>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+
+                        <div style="text-align: right; margin-top: 12px;">
+                            <button class="um-btn-primary" style="padding: 8px 16px; font-size: 13px;" @onclick="SavePriorities" disabled="@_isSavingPriorities">
+                                @if (_isSavingPriorities) { <span class="spinner"></span> }
+                                Save Priority Order
+                            </button>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <!-- Permissions Tab -->
+                    <div class="rd-section-header">
+                        <h3>Effective Permissions</h3>
+                        <p class="rd-hint">Combined permissions from all assigned roles, ordered by role priority.</p>
+                    </div>
+
+                    @if (_userRoles.Count == 0)
+                    {
+                        <div class="rd-empty"><p>No roles assigned — no permissions.</p></div>
+                    }
+                    else
+                    {
+                        @foreach (var role in _userRoles)
+                        {
+                            <div class="rd-perm-group">
+                                <div class="rd-perm-group-header">
+                                    <span class="um-role @GetRoleColorClass(role.RoleName)">@role.RoleDisplayName</span>
+                                    @if (role.ProductName != null)
+                                    {
+                                        <span class="rd-perm-product">@role.ProductName</span>
+                                    }
+                                </div>
+                                <div class="rd-perm-tags">
+                                    @if (role.Permissions.Count == 0)
+                                    {
+                                        <span class="rd-no-perm">No permissions configured</span>
+                                    }
+                                    @foreach (var perm in role.Permissions)
+                                    {
+                                        <span class="rd-perm-tag">@perm</span>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    }
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@* ═══ ADD ROLE DIALOG ═══ *@
+@if (_showAddRoleDialog)
+{
+    <div class="modal-overlay" style="z-index: 1100;" @onclick="() => _showAddRoleDialog = false">
+        <div class="modal-content" style="max-width: 480px;" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h2>Add Role</h2>
+                <button class="close-btn" @onclick="() => _showAddRoleDialog = false">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Product (optional)</label>
+                    <select @bind="_addRoleProductId">
+                        <option value="">Platform-wide (all products)</option>
+                        @foreach (var p in _subscribedProducts)
+                        {
+                            <option value="@p.Id">@p.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Role *</label>
+                    <select @bind="_addRoleId">
+                        <option value="">Select role...</option>
+                        @foreach (var r in _availableRolesToAdd)
+                        {
+                            <option value="@r.Id">@r.DisplayName</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="um-btn-outline" @onclick="() => _showAddRoleDialog = false">Cancel</button>
+                <button class="um-btn-primary" @onclick="AddRoleToUser" disabled="@(_addRoleId == Guid.Empty)">Add Role</button>
+            </div>
+        </div>
+    </div>
+}
+
+@* ═══ REMOVE ROLE CONFIRMATION ═══ *@
+@if (_showRemoveRoleConfirm)
+{
+    <div class="modal-overlay" style="z-index: 1100;" @onclick="() => _showRemoveRoleConfirm = false">
+        <div class="modal-content" style="max-width: 400px;" @onclick:stopPropagation="true">
+            <div class="modal-header" style="border-bottom-color: #fecaca;">
+                <h2 style="color: #dc2626;">Remove Role</h2>
+                <button class="close-btn" @onclick="() => _showRemoveRoleConfirm = false">&times;</button>
+            </div>
+            <div class="modal-body" style="text-align: center; padding: 28px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="m12 16 .01 0"/></svg>
+                <p style="margin: 16px 0 4px; font-size: 15px;">Remove <strong>@_roleToRemove?.RoleDisplayName</strong>@(_roleToRemove?.ProductName != null ? $" from {_roleToRemove.ProductName}" : "")?</p>
+                <p style="font-size: 13px; color: #64748b;">This will revoke all permissions granted by this role.</p>
+            </div>
+            <div class="modal-footer" style="justify-content: center;">
+                <button class="um-btn-outline" @onclick="() => _showRemoveRoleConfirm = false">Cancel</button>
+                <button class="um-btn-primary" style="background: #dc2626;" @onclick="RemoveRoleConfirmed">Remove</button>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    /* ═══ Roles Dialog ═══ */
+    .roles-dialog { background: #fff; border-radius: 14px; width: 100%; max-width: 720px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
+
+    .rd-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid #e2e8f0; }
+    .rd-user-info { display: flex; align-items: center; gap: 14px; }
+    .rd-avatar { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 15px; }
+    .rd-user-info h2 { margin: 0; font-size: 18px; font-weight: 700; color: #0f172a; }
+    .rd-user-info p { margin: 2px 0 0; font-size: 13px; color: #64748b; }
+
+    .rd-tabs { display: flex; border-bottom: 1px solid #e2e8f0; padding: 0 24px; }
+    .rd-tab { padding: 12px 20px; border: none; background: none; font-size: 14px; font-weight: 500; color: #64748b; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+    .rd-tab.active { color: #3b82f6; border-bottom-color: #3b82f6; font-weight: 600; }
+
+    .rd-body { padding: 20px 24px; overflow-y: auto; flex: 1; }
+    .rd-section-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+    .rd-section-header h3 { margin: 0; font-size: 16px; font-weight: 700; color: #0f172a; }
+    .rd-hint { font-size: 12px; color: #94a3b8; margin: 2px 0 0; }
+    .rd-empty { text-align: center; padding: 40px; color: #94a3b8; font-size: 14px; }
+
+    /* Role cards */
+    .rd-role-list { display: flex; flex-direction: column; gap: 8px; }
+    .rd-role-card { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border: 1px solid #e2e8f0; border-radius: 10px; transition: all 0.15s; }
+    .rd-role-card:hover { border-color: #c7d2fe; background: #fafbff; }
+    .rd-role-card.primary { border-color: #93c5fd; background: #eff6ff; }
+
+    .rd-role-left { display: flex; align-items: center; gap: 12px; }
+    .rd-drag-handle { color: #94a3b8; cursor: grab; display: flex; }
+    .rd-drag-handle:active { cursor: grabbing; }
+    .rd-priority-badge { width: 28px; height: 28px; border-radius: 6px; background: #f1f5f9; color: #475569; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+    .rd-priority-badge.badge-primary { background: #3b82f6; color: #fff; }
+
+    .rd-role-info { display: flex; flex-direction: column; gap: 4px; }
+    .rd-role-name { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: #0f172a; }
+    .rd-primary-tag { padding: 2px 8px; background: #dbeafe; color: #1d4ed8; border-radius: 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+    .rd-system-tag { padding: 2px 8px; background: #f1f5f9; color: #64748b; border-radius: 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+    .rd-role-meta { display: flex; align-items: center; gap: 8px; }
+    .rd-perm-count { font-size: 12px; color: #94a3b8; }
+
+    .rd-role-actions { display: flex; gap: 4px; }
+
+    /* Permissions tab */
+    .rd-perm-group { margin-bottom: 16px; padding: 14px; border: 1px solid #e2e8f0; border-radius: 10px; }
+    .rd-perm-group-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .rd-perm-product { font-size: 12px; color: #64748b; }
+    .rd-perm-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .rd-perm-tag { padding: 4px 10px; background: #f0fdf4; color: #16a34a; border-radius: 6px; font-size: 12px; font-weight: 500; }
+    .rd-no-perm { font-size: 13px; color: #94a3b8; font-style: italic; }
+</style>
+
+@code {
+    // ═══ Roles Dialog State ═══
+    private bool _showRolesDialog = false;
+    private UserDto? _selectedUser;
+    private string _rolesTab = "roles";
+    private List<UserRoleDto> _userRoles = new();
+    private bool _isSavingPriorities = false;
+
+    // Add Role Dialog
+    private bool _showAddRoleDialog = false;
+    private Guid _addRoleId = Guid.Empty;
+    private string _addRoleProductId = "";
+
+    // Remove Role
+    private bool _showRemoveRoleConfirm = false;
+    private UserRoleDto? _roleToRemove;
+
+    private List<Shared.DTOs.RoleDto> _availableRolesToAdd =>
+        _allRoles.Where(r => !r.IsSystemRole && !_userRoles.Any(ur => ur.RoleId == r.Id)).ToList();
+
+    // ═══ Called when a user row is clicked ═══
+    private async Task OpenRolesDialog(UserDto user)
+    {
+        _selectedUser = user;
+        _rolesTab = "roles";
+        _showRolesDialog = true;
+
+        // Load roles from API
+        // TODO: Replace with actual API call:
+        // _userRoles = await Http.GetFromJsonAsync<List<UserRoleDto>>($"api/users/{user.Id}/roles");
+
+        // Sample data for UI preview:
+        _userRoles = new List<UserRoleDto>
+        {
+            new() { Id = Guid.NewGuid(), RoleId = Guid.NewGuid(), RoleName = "TenantAdmin", RoleDisplayName = "Tenant Admin", Priority = 10, IsSystemRole = false, ProductName = null, Permissions = new() { "users:manage", "masterdata:manage", "manage:settings", "manage:billings" } },
+            new() { Id = Guid.NewGuid(), RoleId = Guid.NewGuid(), RoleName = "ProductAdmin", RoleDisplayName = "Product Admin", Priority = 20, IsSystemRole = false, ProductName = "AG ONE Work", ProductId = Guid.NewGuid(), Permissions = new() { "users:manage", "masterdata:manage" } },
+            new() { Id = Guid.NewGuid(), RoleId = Guid.NewGuid(), RoleName = "HR", RoleDisplayName = "HR", Priority = 30, IsSystemRole = false, ProductName = "AG ONE Work", ProductId = Guid.NewGuid(), Permissions = new() { "employees:read", "employees:write", "leave:manage" } },
+        };
+    }
+
+    private void CloseRolesDialog() { _showRolesDialog = false; _selectedUser = null; }
+
+    private void MoveRoleUp(int index)
+    {
+        if (index <= 0) return;
+        (_userRoles[index], _userRoles[index - 1]) = (_userRoles[index - 1], _userRoles[index]);
+        for (int i = 0; i < _userRoles.Count; i++) _userRoles[i].Priority = (i + 1) * 10;
+    }
+
+    private void MoveRoleDown(int index)
+    {
+        if (index >= _userRoles.Count - 1) return;
+        (_userRoles[index], _userRoles[index + 1]) = (_userRoles[index + 1], _userRoles[index]);
+        for (int i = 0; i < _userRoles.Count; i++) _userRoles[i].Priority = (i + 1) * 10;
+    }
+
+    private async Task SavePriorities()
+    {
+        _isSavingPriorities = true; StateHasChanged();
+        try
+        {
+            // TODO: Call API
+            // await Http.PutAsJsonAsync($"api/users/{_selectedUser!.Id}/roles/reorder", new BulkUpdatePrioritiesDto { ... });
+            await Task.Delay(500); // Simulate
+            Snackbar.Add("Role priorities saved", Severity.Success);
+        }
+        catch (Exception ex) { Snackbar.Add($"Error: {ex.Message}", Severity.Error); }
+        finally { _isSavingPriorities = false; StateHasChanged(); }
+    }
+
+    private void OpenAddRoleDialog() { _addRoleId = Guid.Empty; _addRoleProductId = ""; _showAddRoleDialog = true; }
+
+    private async Task AddRoleToUser()
+    {
+        if (_addRoleId == Guid.Empty) return;
+        // TODO: Call API
+        // await Http.PostAsJsonAsync($"api/users/{_selectedUser!.Id}/roles", new AssignRoleDto { ... });
+
+        var role = _allRoles.FirstOrDefault(r => r.Id == _addRoleId);
+        if (role != null)
+        {
+            _userRoles.Add(new UserRoleDto
+            {
+                Id = Guid.NewGuid(), RoleId = role.Id, RoleName = role.Name,
+                RoleDisplayName = role.DisplayName, Priority = (_userRoles.Count + 1) * 10,
+                ProductId = Guid.TryParse(_addRoleProductId, out var pid) ? pid : null,
+                ProductName = _subscribedProducts.FirstOrDefault(p => p.Id.ToString() == _addRoleProductId)?.Name
+            });
+        }
+        _showAddRoleDialog = false;
+        Snackbar.Add("Role added", Severity.Success);
+    }
+
+    private void ConfirmRemoveRole(UserRoleDto role) { _roleToRemove = role; _showRemoveRoleConfirm = true; }
+
+    private async Task RemoveRoleConfirmed()
+    {
+        if (_roleToRemove == null) return;
+        // TODO: Call API
+        // await Http.DeleteAsync($"api/users/{_selectedUser!.Id}/roles/{_roleToRemove.Id}");
+
+        _userRoles.Remove(_roleToRemove);
+        for (int i = 0; i < _userRoles.Count; i++) _userRoles[i].Priority = (i + 1) * 10;
+        _showRemoveRoleConfirm = false;
+        _roleToRemove = null;
+        Snackbar.Add("Role removed", Severity.Success);
+    }
+}
