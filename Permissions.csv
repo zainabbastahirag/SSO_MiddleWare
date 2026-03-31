@@ -1,0 +1,83 @@
+Code,DisplayName,Group,Resource,Action,Product
+agone.users.create,Create Users,User Management,Users,Create,AG ONE (admin)
+agone.users.read,Read Users,User Management,Users,Read,AG ONE (admin)
+agone.users.update,Update Users,User Management,Users,Update,AG ONE (admin)
+agone.users.delete,Delete Users,User Management,Users,Delete,AG ONE (admin)
+agone.roles.create,Create Roles,User Management,Roles,Create,AG ONE (admin)
+agone.roles.read,Read Roles,User Management,Roles,Read,AG ONE (admin)
+agone.roles.update,Update Roles,User Management,Roles,Update,AG ONE (admin)
+agone.roles.delete,Delete Roles,User Management,Roles,Delete,AG ONE (admin)
+agone.permissions.create,Create Permissions,User Management,Permissions,Create,AG ONE (admin)
+agone.permissions.read,Read Permissions,User Management,Permissions,Read,AG ONE (admin)
+agone.permissions.update,Update Permissions,User Management,Permissions,Update,AG ONE (admin)
+agone.permissions.delete,Delete Permissions,User Management,Permissions,Delete,AG ONE (admin)
+agone.tenant.create,Create Tenant Info,Tenant Management,Tenant Information,Create,AG ONE (admin)
+agone.tenant.read,Read Tenant Info,Tenant Management,Tenant Information,Read,AG ONE (admin)
+agone.tenant.update,Update Tenant Info,Tenant Management,Tenant Information,Update,AG ONE (admin)
+agone.tenant.delete,Delete Tenant Info,Tenant Management,Tenant Information,Delete,AG ONE (admin)
+agone.subscription.create,Create Subscriptions,Tenant Management,Subscriptions,Create,AG ONE (admin)
+agone.subscription.read,Read Subscriptions,Tenant Management,Subscriptions,Read,AG ONE (admin)
+agone.subscription.update,Update Subscriptions,Tenant Management,Subscriptions,Update,AG ONE (admin)
+agone.subscription.delete,Delete Subscriptions,Tenant Management,Subscriptions,Delete,AG ONE (admin)
+agone.billing.create,Create Billing,Tenant Management,Billing,Create,AG ONE (admin)
+agone.billing.read,Read Billing,Tenant Management,Billing,Read,AG ONE (admin)
+agone.billing.update,Update Billing,Tenant Management,Billing,Update,AG ONE (admin)
+agone.billing.delete,Delete Billing,Tenant Management,Billing,Delete,AG ONE (admin)
+agone.masterdata.create,Create Master Data,Master Data,Master Data,Create,AG ONE (admin)
+agone.masterdata.read,Read Master Data,Master Data,Master Data,Read,AG ONE (admin)
+agone.masterdata.update,Update Master Data,Master Data,Master Data,Update,AG ONE (admin)
+agone.masterdata.delete,Delete Master Data,Master Data,Master Data,Delete,AG ONE (admin)
+agone.audit.read,Read Audit Logs,Audit,Audit Logs,Read,AG ONE (admin)
+work.employee.create,Create Employee,Employee Management,Employee,Create,AG ONE Work
+work.employee.read,Read Employee,Employee Management,Employee,Read,AG ONE Work
+work.employee.update,Update Employee,Employee Management,Employee,Update,AG ONE Work
+work.employee.delete,Delete Employee,Employee Management,Employee,Delete,AG ONE Work
+work.recruitment.create,Create Recruitment,Employee Management,Recruitment,Create,AG ONE Work
+work.recruitment.read,Read Recruitment,Employee Management,Recruitment,Read,AG ONE Work
+work.recruitment.update,Update Recruitment,Employee Management,Recruitment,Update,AG ONE Work
+work.recruitment.delete,Delete Recruitment,Employee Management,Recruitment,Delete,AG ONE Work
+work.activate.create,Create Activate Profile,Profile Management,Activate Profile,Create,AG ONE Work
+work.activate.read,Read Activate Profile,Profile Management,Activate Profile,Read,AG ONE Work
+work.activate.update,Update Activate Profile,Profile Management,Activate Profile,Update,AG ONE Work
+work.activate.delete,Delete Activate Profile,Profile Management,Activate Profile,Delete,AG ONE Work
+work.masterdata.create,Create Master Data,Master Data,Master Data,Create,AG ONE Work
+work.masterdata.read,Read Master Data,Master Data,Master Data,Read,AG ONE Work
+work.masterdata.update,Update Master Data,Master Data,Master Data,Update,AG ONE Work
+work.masterdata.delete,Delete Master Data,Master Data,Master Data,Delete,AG ONE Work
+learn.path.create,Create Learning Path,Learning,Learning Path,Create,AG ONE Learn
+learn.path.read,Read Learning Path,Learning,Learning Path,Read,AG ONE Learn
+learn.path.update,Update Learning Path,Learning,Learning Path,Update,AG ONE Learn
+learn.path.delete,Delete Learning Path,Learning,Learning Path,Delete,AG ONE Learn
+learn.datasource.create,Create Data Source,Learning,Data Source,Create,AG ONE Learn
+learn.datasource.read,Read Data Source,Learning,Data Source,Read,AG ONE Learn
+learn.datasource.update,Update Data Source,Learning,Data Source,Update,AG ONE Learn
+learn.datasource.delete,Delete Data Source,Learning,Data Source,Delete,AG ONE Learn
+learn.assignment.create,Create Learning Assignment,Learning,Learning Assignment,Create,AG ONE Learn
+learn.assignment.read,Read Learning Assignment,Learning,Learning Assignment,Read,AG ONE Learn
+learn.assignment.update,Update Learning Assignment,Learning,Learning Assignment,Update,AG ONE Learn
+learn.assignment.delete,Delete Learning Assignment,Learning,Learning Assignment,Delete,AG ONE Learn
+learn.assessment.create,Create Learning Assessment,Assessment,Learning Assessment,Create,AG ONE Learn
+learn.assessment.read,Read Learning Assessment,Assessment,Learning Assessment,Read,AG ONE Learn
+learn.assessment.update,Update Learning Assessment,Assessment,Learning Assessment,Update,AG ONE Learn
+learn.assessment.delete,Delete Learning Assessment,Assessment,Learning Assessment,Delete,AG ONE Learn
+safe.policy.create,Create Policies,Compliance,Policies,Create,AG ONE Safe
+safe.policy.read,Read Policies,Compliance,Policies,Read,AG ONE Safe
+safe.policy.update,Update Policies,Compliance,Policies,Update,AG ONE Safe
+safe.policy.delete,Delete Policies,Compliance,Policies,Delete,AG ONE Safe
+safe.compliance.create,Create Compliance,Compliance,Compliance,Create,AG ONE Safe
+safe.compliance.read,Read Compliance,Compliance,Compliance,Read,AG ONE Safe
+safe.compliance.update,Update Compliance,Compliance,Compliance,Update,AG ONE Safe
+safe.compliance.delete,Delete Compliance,Compliance,Compliance,Delete,AG ONE Safe
+safe.datalibrary.create,Create Data Library,Data Library,Data Library,Create,AG ONE Safe
+safe.datalibrary.read,Read Data Library,Data Library,Data Library,Read,AG ONE Safe
+safe.datalibrary.update,Update Data Library,Data Library,Data Library,Update,AG ONE Safe
+safe.datalibrary.delete,Delete Data Library,Data Library,Data Library,Delete,AG ONE Safe
+pulse.survey.create,Create Survey,Surveys,Survey,Create,AG ONE Pulse
+pulse.survey.read,Read Survey,Surveys,Survey,Read,AG ONE Pulse
+pulse.survey.update,Update Survey,Surveys,Survey,Update,AG ONE Pulse
+pulse.survey.delete,Delete Survey,Surveys,Survey,Delete,AG ONE Pulse
+pulse.analytics.read,Read Analytics,Analytics,Analytics,Read,AG ONE Pulse
+spot.city.create,Create City Data,City Management,City Data,Create,AG ONE Spot
+spot.city.read,Read City Data,City Management,City Data,Read,AG ONE Spot
+spot.city.update,Update City Data,City Management,City Data,Update,AG ONE Spot
+spot.city.delete,Delete City Data,City Management,City Data,Delete,AG ONE Spot
