@@ -157,10 +157,8 @@ else
                     }
                     else
                     {
-                        @{
-                            var matrix = _permissionMatrix.FirstOrDefault(m => m.ProductId == _selectedProductId);
-                        }
-                        @if (matrix != null)
+                        var matrix = _permissionMatrix.FirstOrDefault(m => m.ProductId == _selectedProductId);
+                        if (matrix != null)
                         {
                             <div class="rw-matrix-wrap">
                                 <table class="rw-matrix">
