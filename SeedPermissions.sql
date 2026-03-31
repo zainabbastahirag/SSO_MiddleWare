@@ -145,9 +145,12 @@ WHERE NOT EXISTS (
 )
 
 DECLARE @inserted INT = @@ROWCOUNT
+DECLARE @total INT
+SELECT @total = COUNT(*) FROM [core].[Permissions] WHERE IsDeleted = 0
+
 PRINT ''
 PRINT 'Inserted: ' + CAST(@inserted AS NVARCHAR(10)) + ' new permissions'
-PRINT 'Total in table: ' + CAST((SELECT COUNT(*) FROM [core].[Permissions] WHERE IsDeleted = 0) AS NVARCHAR(10))
+PRINT 'Total in table: ' + CAST(@total AS NVARCHAR(10))
 
 DROP TABLE #PermSeed
 GO
