@@ -1,0 +1,536 @@
+@page "/admin/masterdatatenant"
+@layout AdminLayout
+@inject ISubscriptionService SubscriptionService
+@inject IProductService ProductService
+@inject IAuthService AuthService
+@inject IAGAuthorizationService AuthorizationService
+@inject ITenantMasterDataApiService TenantMasterDataService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Master Data - AGOne</PageTitle>
+
+<div class="md-page">
+    <!-- Page Header -->
+    <div class="md-top">
+        <div>
+            <h1 class="md-title">Master Data</h1>
+            <p class="md-subtitle">Manage organizational master data including departments, locations, and cost centers</p>
+        </div>
+        <button class="md-btn-add" @onclick="OpenAddModal">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+            Add Values
+        </button>
+    </div>
+
+    <div class="md-layout">
+        <!-- ═══ LEFT SIDEBAR — Field Navigator ═══ -->
+        <aside class="md-sidebar">
+            <h3 class="md-sidebar-title">Field Navigator</h3>
+
+            @foreach (var group in _fieldGroups)
+            {
+                <div class="md-nav-group">
+                    <button class="md-nav-group-header @(group.IsExpanded ? "expanded" : "")" @onclick="() => group.IsExpanded = !group.IsExpanded">
+                        <span class="md-nav-group-name">@group.Name</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="md-chevron"><path d="m6 9 6 6 6-6"/></svg>
+                    </button>
+                    @if (group.IsExpanded)
+                    {
+                        <div class="md-nav-items">
+                            @foreach (var item in group.Items)
+                            {
+                                <button class="md-nav-item @(_selectedEntityCode == item.EntityCode ? "active" : "")"
+                                        @onclick="() => SelectField(item)">
+                                    @item.EntityName
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </aside>
+
+        <!-- ═══ RIGHT CONTENT ═══ -->
+        <main class="md-content">
+            <!-- Scope & Product dropdowns -->
+            <div class="md-filters">
+                <div class="md-filter-group">
+                    <label>Scope</label>
+                    <div class="md-select-wrapper">
+                        <select class="md-select" @bind="_selectedScope">
+                            <option value="global">Global</option>
+                            <option value="product">Product</option>
+                        </select>
+                    </div>
+                </div>
+                @if (_selectedScope == "product")
+                {
+                    <div class="md-filter-group">
+                        <label>Product</label>
+                        <div class="md-select-wrapper">
+                            <select class="md-select md-select-product" value="@_selectedProductId" @onchange="OnProductChanged">
+                                <option value="">Select Product</option>
+                                @foreach (var product in _subscribedProducts)
+                                {
+                                    <option value="@product.ProductId">@product.ProductName</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <!-- Search + Refresh -->
+            <div class="md-toolbar">
+                <div class="md-search-wrap">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="md-search-icon"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                    <input type="text" class="md-search" placeholder="Search" @bind="_searchTerm" @bind:event="oninput" />
+                </div>
+                <button class="md-icon-btn" title="Refresh" @onclick="RefreshData">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+                </button>
+            </div>
+
+            <!-- Data Table -->
+            @if (_isLoading || _isLoadingData)
+            {
+                <div class="md-loading">
+                    <MudProgressCircular Color="Color.Primary" Size="Size.Small" Indeterminate="true" />
+                    <span>Loading...</span>
+                </div>
+            }
+            else if (_masterDataItems.Count == 0)
+            {
+                <div class="md-empty">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    <h4>No data found</h4>
+                    <p>Start by adding a new value or import from a file.</p>
+                </div>
+            }
+            else
+            {
+                <div class="md-table-wrap">
+                    <table class="md-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Value</th>
+                                <th>Type</th>
+                                <th>Status</th>
+                                <th>Used by</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in FilteredItems)
+                            {
+                                <tr>
+                                    <td class="md-td-id">@GetFieldVal(item, "CODE", item.Id.ToString())</td>
+                                    <td class="md-td-value">@GetFieldVal(item, "NAME", GetFieldVal(item, "VALUE", "-"))</td>
+                                    <td class="md-td-type">@GetFieldVal(item, "TYPE", "Single select dropdown")</td>
+                                    <td>
+                                        @{
+                                            var status = GetFieldVal(item, "STATUS", "Active");
+                                            var statusClass = status.ToLower() switch { "active" => "st-active", "scheduled" => "st-scheduled", "expired" => "st-expired", _ => "st-active" };
+                                        }
+                                        <span class="md-status @statusClass">@status</span>
+                                    </td>
+                                    <td class="md-td-used">@GetFieldVal(item, "USED_BY", "50 users")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="md-table-footer">
+                    <span class="md-showing">Showing 1 to @FilteredItems.Count() of @FilteredItems.Count() entries</span>
+                    <div class="md-pagination">
+                        <button class="md-page-btn" disabled>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+                        </button>
+                        <button class="md-page-btn active">1</button>
+                        <button class="md-page-btn" disabled>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+                        </button>
+                    </div>
+                </div>
+            }
+        </main>
+    </div>
+</div>
+
+@* ═══ ADD/EDIT MODAL ═══ *@
+@if (_showModal)
+{
+    <div class="modal-overlay" @onclick="CloseModal">
+        <div class="modal-container" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>@(_isEditMode ? "Edit" : "Add New") @GetSelectedEntityName()</h3>
+                <button class="modal-close-btn" @onclick="CloseModal">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <MudForm @ref="_form" @bind-IsValid="_formIsValid">
+                    <MudGrid>
+                        @foreach (var field in _currentFields.Where(f => f.ShowInForm).OrderBy(f => f.DisplayOrder))
+                        {
+                            <MudItem xs="12" sm="@(field.DataType.ToLower() is "boolean" or "bool" ? 12 : 6)">
+                                @switch (field.DataType.ToLower())
+                                {
+                                    case "string": case "text":
+                                        <MudTextField T="string" Value="GetFieldValue<string>(field.FieldCode)" ValueChanged="@((string v) => SetFieldValue(field.FieldCode, v))" Label="@field.FieldName" Required="@field.IsRequired" RequiredError="@($"{field.FieldName} is required")" ReadOnly="@field.IsReadOnly" Variant="Variant.Outlined" Class="mb-3" />
+                                        break;
+                                    case "int": case "integer":
+                                        <MudNumericField T="int?" Value="GetFieldValue<int?>(field.FieldCode)" ValueChanged="@((int? v) => SetFieldValue(field.FieldCode, v))" Label="@field.FieldName" Required="@field.IsRequired" ReadOnly="@field.IsReadOnly" Variant="Variant.Outlined" Class="mb-3" />
+                                        break;
+                                    case "decimal": case "money": case "currency": case "number":
+                                        <MudNumericField T="decimal?" Value="GetFieldValue<decimal?>(field.FieldCode)" ValueChanged="@((decimal? v) => SetFieldValue(field.FieldCode, v))" Label="@field.FieldName" Required="@field.IsRequired" ReadOnly="@field.IsReadOnly" Variant="Variant.Outlined" Class="mb-3" />
+                                        break;
+                                    case "bool": case "boolean":
+                                        <MudCheckBox T="bool" Value="GetFieldValue<bool>(field.FieldCode)" ValueChanged="@((bool v) => SetFieldValue(field.FieldCode, v))" Label="@field.FieldName" ReadOnly="@field.IsReadOnly" Color="Color.Primary" Class="mb-3" />
+                                        break;
+                                    case "date": case "datetime":
+                                        <MudDatePicker Date="@GetFieldDateValue(field.FieldCode)" DateChanged="@((DateTime? v) => SetFieldValue(field.FieldCode, v))" Label="@field.FieldName" Required="@field.IsRequired" ReadOnly="@field.IsReadOnly" Variant="Variant.Outlined" Editable="true" DateFormat="yyyy-MM-dd" PickerVariant="PickerVariant.Dialog" Class="mb-3" />
+                                        break;
+                                    default:
+                                        <MudTextField T="string" Value="GetFieldValue<string>(field.FieldCode)" ValueChanged="@((string v) => SetFieldValue(field.FieldCode, v))" Label="@field.FieldName" Required="@field.IsRequired" ReadOnly="@field.IsReadOnly" Variant="Variant.Outlined" Class="mb-3" />
+                                        break;
+                                }
+                            </MudItem>
+                        }
+                    </MudGrid>
+                </MudForm>
+            </div>
+            <div class="modal-footer">
+                <MudButton OnClick="CloseModal" Variant="Variant.Text">Cancel</MudButton>
+                <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="SaveItem" Disabled="@(!_formIsValid || _isSaving)">
+                    @if (_isSaving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+                    @(_isEditMode ? "Update" : "Add")
+                </MudButton>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    /* ═══ Page ═══ */
+    .md-page { display: flex; flex-direction: column; gap: 0; }
+    .md-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
+    .md-title { font-size: 26px; font-weight: 800; color: #0f172a; margin: 0; }
+    .md-subtitle { font-size: 14px; color: #64748b; margin: 4px 0 0; }
+
+    .md-btn-add { display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px; border-radius: 8px; border: none; background: #3b82f6; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+    .md-btn-add:hover { background: #2563eb; }
+
+    /* ═══ Layout — sidebar + content ═══ */
+    .md-layout { display: flex; gap: 0; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; overflow: hidden; min-height: 500px; }
+
+    /* ═══ Sidebar ═══ */
+    .md-sidebar { width: 220px; min-width: 220px; border-right: 1px solid #e2e8f0; padding: 20px 0; background: #fafbfd; }
+    .md-sidebar-title { font-size: 13px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; padding: 0 16px; margin: 0 0 12px; }
+
+    .md-nav-group { margin-bottom: 2px; }
+    .md-nav-group-header { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; border: none; background: none; cursor: pointer; font-size: 14px; font-weight: 600; color: #3b82f6; transition: background 0.15s; }
+    .md-nav-group-header:hover { background: #f1f5f9; }
+    .md-chevron { transition: transform 0.2s; color: #94a3b8; }
+    .md-nav-group-header.expanded .md-chevron { transform: rotate(180deg); }
+
+    .md-nav-items { display: flex; flex-direction: column; }
+    .md-nav-item { width: 100%; padding: 9px 16px 9px 28px; border: none; background: none; text-align: left; font-size: 13px; color: #475569; cursor: pointer; transition: all 0.15s; }
+    .md-nav-item:hover { background: #f1f5f9; color: #1e40af; }
+    .md-nav-item.active { background: #3b82f6; color: #fff; font-weight: 600; }
+
+    /* ═══ Content ═══ */
+    .md-content { flex: 1; padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+
+    /* ═══ Filters ═══ */
+    .md-filters { display: flex; gap: 20px; }
+    .md-filter-group { display: flex; flex-direction: column; gap: 4px; }
+    .md-filter-group label { font-size: 12px; font-weight: 600; color: #475569; }
+    .md-select-wrapper { position: relative; }
+    .md-select { padding: 9px 36px 9px 14px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; color: #0f172a; background: #fff; appearance: none; cursor: pointer; min-width: 160px; }
+    .md-select:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+    .md-select-product { min-width: 200px; background: #f1f5f9; color: #94a3b8; }
+
+    /* ═══ Toolbar ═══ */
+    .md-toolbar { display: flex; justify-content: space-between; align-items: center; }
+    .md-search-wrap { position: relative; }
+    .md-search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none; }
+    .md-search { padding: 9px 14px 9px 36px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; width: 280px; }
+    .md-search:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+    .md-icon-btn { background: none; border: 1px solid #d1d5db; border-radius: 8px; padding: 8px; cursor: pointer; color: #64748b; display: flex; align-items: center; }
+    .md-icon-btn:hover { background: #f1f5f9; border-color: #94a3b8; }
+
+    /* ═══ Table ═══ */
+    .md-table-wrap { overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px; }
+    .md-table { width: 100%; border-collapse: collapse; }
+    .md-table thead { background: #3b82f6; }
+    .md-table th { padding: 12px 16px; text-align: left; font-size: 12px; font-weight: 700; color: #fff; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+    .md-table td { padding: 14px 16px; font-size: 14px; color: #0f172a; border-bottom: 1px solid #f1f5f9; }
+    .md-table tbody tr:hover { background: #f8fafc; }
+    .md-table tbody tr:last-child td { border-bottom: none; }
+
+    .md-td-id { font-weight: 600; color: #475569; width: 80px; }
+    .md-td-value { font-weight: 500; }
+    .md-td-type { color: #64748b; }
+    .md-td-used { color: #64748b; white-space: nowrap; }
+
+    /* ═══ Status badges ═══ */
+    .md-status { display: inline-block; padding: 4px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+    .st-active { background: #dcfce7; color: #16a34a; }
+    .st-scheduled { background: #fef3c7; color: #d97706; }
+    .st-expired { background: #f1f5f9; color: #64748b; }
+
+    /* ═══ Table footer ═══ */
+    .md-table-footer { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 13px; }
+    .md-showing { color: #3b82f6; }
+    .md-pagination { display: flex; gap: 4px; }
+    .md-page-btn { width: 32px; height: 32px; border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #64748b; }
+    .md-page-btn.active { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+    .md-page-btn:disabled { opacity: 0.4; cursor: default; }
+
+    /* ═══ Loading / Empty ═══ */
+    .md-loading { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 60px 0; color: #64748b; }
+    .md-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; color: #94a3b8; }
+    .md-empty h4 { margin: 16px 0 4px; font-size: 16px; color: #64748b; }
+    .md-empty p { margin: 0; font-size: 14px; }
+
+    /* ═══ Modal ═══ */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1300; }
+    .modal-container { background: #fff; border-radius: 12px; max-width: 700px; width: 90%; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid #e2e8f0; }
+    .modal-header h3 { margin: 0; font-size: 18px; font-weight: 700; color: #0f172a; }
+    .modal-close-btn { background: none; border: none; cursor: pointer; padding: 6px; border-radius: 6px; color: #64748b; }
+    .modal-close-btn:hover { background: #f1f5f9; }
+    .modal-body { padding: 24px; overflow-y: auto; flex: 1; }
+    .modal-footer { padding: 16px 24px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 12px; }
+
+    @@media (max-width: 768px) {
+        .md-layout { flex-direction: column; }
+        .md-sidebar { width: 100%; min-width: 100%; border-right: none; border-bottom: 1px solid #e2e8f0; }
+        .md-filters { flex-direction: column; }
+        .md-search { width: 100%; }
+    }
+</style>
+
+@code {
+    private string _selectedScope = "global";
+    private Guid _selectedProductId = Guid.Empty;
+    private string _selectedEntityCode = "";
+    private Guid _selectedMasterDataDefId = Guid.Empty;
+    private string _searchTerm = "";
+    private bool _isLoading = true;
+    private bool _isLoadingData = false;
+
+    private List<SubscribedProductViewModel> _subscribedProducts = new();
+    private List<TenantMasterDataItemDto> _masterDataItems = new();
+    private List<MasterDataDefinitionWithFieldsDto> _entityTabs = new();
+    private List<MasterDataFieldDto> _currentFields = new();
+    private ProductMasterDataSchemaDto? _currentSchema;
+    private List<FieldNavGroup> _fieldGroups = new();
+
+    private bool _showModal = false;
+    private bool _isEditMode = false;
+    private bool _formIsValid = false;
+    private bool _isSaving = false;
+    private MudForm? _form;
+    private EditItemModel _editItem = new();
+
+    private IEnumerable<TenantMasterDataItemDto> FilteredItems =>
+        string.IsNullOrEmpty(_searchTerm) ? _masterDataItems :
+        _masterDataItems.Where(i => i.FieldValues.Values.Any(v => v?.ToString()?.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) == true));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSubscribedProductsAsync();
+        BuildFieldNav();
+    }
+
+    private void BuildFieldNav()
+    {
+        _fieldGroups = new List<FieldNavGroup>
+        {
+            new()
+            {
+                Name = "Employee Info", IsExpanded = true,
+                Items = _entityTabs.Any() ? _entityTabs.Select(e => new FieldNavItem { EntityCode = e.EntityCode, EntityName = e.EntityName }).ToList()
+                : new List<FieldNavItem>
+                {
+                    new() { EntityCode = "GENDER", EntityName = "Gender" },
+                    new() { EntityCode = "EMPLOYMENT_TYPE", EntityName = "Employment Type" },
+                    new() { EntityCode = "PROBATION_STATUS", EntityName = "Probation Status" },
+                    new() { EntityCode = "MARITAL_STATUS", EntityName = "Marital Status" },
+                    new() { EntityCode = "JOB_TITLE", EntityName = "Job Title / Role" },
+                    new() { EntityCode = "DEPARTMENT", EntityName = "Department" },
+                    new() { EntityCode = "NATIONALITY", EntityName = "Nationality / Country" },
+                    new() { EntityCode = "OFFICE_LOCATION", EntityName = "Office Location" },
+                    new() { EntityCode = "RELATIONSHIP", EntityName = "Relationship" }
+                }
+            },
+            new()
+            {
+                Name = "Configurations", IsExpanded = true,
+                Items = new List<FieldNavItem>
+                {
+                    new() { EntityCode = "PHONE_CODE", EntityName = "Phone Code" },
+                    new() { EntityCode = "TAX_TYPE", EntityName = "Tax Type" },
+                    new() { EntityCode = "MS_LICENSE", EntityName = "Microsoft Access License" },
+                    new() { EntityCode = "LAPTOP_TYPE", EntityName = "Laptop Type" }
+                }
+            }
+        };
+
+        if (string.IsNullOrEmpty(_selectedEntityCode) && _fieldGroups.Any() && _fieldGroups[0].Items.Any())
+        {
+            _selectedEntityCode = _fieldGroups[0].Items[0].EntityCode;
+        }
+    }
+
+    private async Task LoadSubscribedProductsAsync()
+    {
+        _isLoading = true;
+        try
+        {
+            var subscriptions = await SubscriptionService.GetMySubscriptionsAsync();
+            var products = await ProductService.GetAllAsync();
+
+            foreach (var sub in subscriptions.Where(s => s.Status == "Active"))
+            {
+                var product = products.FirstOrDefault(p => p.Id == sub.ProductId);
+                if (product != null)
+                    _subscribedProducts.Add(new SubscribedProductViewModel { ProductId = sub.ProductId, ProductCode = product.Code ?? "", ProductName = product.Name });
+            }
+
+            if (_subscribedProducts.Any())
+            {
+                _selectedProductId = _subscribedProducts.First().ProductId;
+                await LoadProductSchemaAsync();
+            }
+        }
+        catch
+        {
+            _subscribedProducts = new List<SubscribedProductViewModel>
+            {
+                new() { ProductId = Guid.NewGuid(), ProductCode = "AGOneWork", ProductName = "AG ONE Work" },
+                new() { ProductId = Guid.NewGuid(), ProductCode = "AGOneLearn", ProductName = "AG ONE Learn" }
+            };
+            _selectedProductId = _subscribedProducts.First().ProductId;
+            LoadSampleData();
+        }
+        finally { _isLoading = false; }
+    }
+
+    private async Task LoadProductSchemaAsync()
+    {
+        if (_selectedProductId == Guid.Empty) return;
+        _isLoading = true;
+        StateHasChanged();
+        try
+        {
+            _currentSchema = await TenantMasterDataService.GetProductSchemaAsync(_selectedProductId);
+            if (_currentSchema?.Definitions.Any() == true)
+            {
+                _entityTabs = _currentSchema.Definitions;
+                var first = _entityTabs.First();
+                _selectedEntityCode = first.EntityCode;
+                _selectedMasterDataDefId = first.MasterDataDefId;
+                _currentFields = first.Fields;
+                BuildFieldNav();
+                await LoadDataItemsAsync();
+            }
+        }
+        catch { LoadSampleData(); }
+        finally { _isLoading = false; StateHasChanged(); }
+    }
+
+    private void LoadSampleData()
+    {
+        _masterDataItems = new List<TenantMasterDataItemDto>
+        {
+            new() { Id = 1, FieldValues = new() { ["CODE"] = "WG01", ["NAME"] = "Male", ["TYPE"] = "Single select dropdown", ["STATUS"] = "Active", ["USED_BY"] = "50 users" } },
+            new() { Id = 2, FieldValues = new() { ["CODE"] = "WG02", ["NAME"] = "Female", ["TYPE"] = "Single select dropdown", ["STATUS"] = "Active", ["USED_BY"] = "50 users" } },
+            new() { Id = 3, FieldValues = new() { ["CODE"] = "WG03", ["NAME"] = "Non-binary", ["TYPE"] = "Single select dropdown", ["STATUS"] = "Scheduled", ["USED_BY"] = "50 users" } },
+            new() { Id = 4, FieldValues = new() { ["CODE"] = "WG04", ["NAME"] = "Others", ["TYPE"] = "Single select dropdown", ["STATUS"] = "Expired", ["USED_BY"] = "50 users" } },
+            new() { Id = 5, FieldValues = new() { ["CODE"] = "WG05", ["NAME"] = "Prefer not to say", ["TYPE"] = "Single select dropdown", ["STATUS"] = "Active", ["USED_BY"] = "50 users" } }
+        };
+        BuildFieldNav();
+    }
+
+    private async Task LoadDataItemsAsync()
+    {
+        _isLoadingData = true; StateHasChanged();
+        try { _masterDataItems = await TenantMasterDataService.GetTenantDataItemsAsync(_selectedProductId, _selectedEntityCode); }
+        catch { _masterDataItems = new(); }
+        finally { _isLoadingData = false; StateHasChanged(); }
+    }
+
+    private async Task OnProductChanged(ChangeEventArgs e)
+    {
+        if (Guid.TryParse(e.Value?.ToString(), out var id)) { _selectedProductId = id; await LoadProductSchemaAsync(); }
+    }
+
+    private async Task SelectField(FieldNavItem item)
+    {
+        _selectedEntityCode = item.EntityCode;
+        var def = _entityTabs.FirstOrDefault(d => d.EntityCode == item.EntityCode);
+        if (def != null) { _selectedMasterDataDefId = def.MasterDataDefId; _currentFields = def.Fields; await LoadDataItemsAsync(); }
+        else { LoadSampleData(); }
+    }
+
+    private async Task RefreshData() { await LoadDataItemsAsync(); Snackbar.Add("Refreshed", Severity.Info); }
+    private string GetSelectedEntityName() => _entityTabs.FirstOrDefault(t => t.EntityCode == _selectedEntityCode)?.EntityName ?? _fieldGroups.SelectMany(g => g.Items).FirstOrDefault(i => i.EntityCode == _selectedEntityCode)?.EntityName ?? "Master Data";
+
+    private string GetFieldVal(TenantMasterDataItemDto item, string key, string fallback)
+    {
+        if (item.FieldValues.TryGetValue(key, out var v) && v != null) return v.ToString() ?? fallback;
+        return fallback;
+    }
+
+    // Modal
+    private void OpenAddModal() { _isEditMode = false; _editItem = new EditItemModel { FieldValues = new() }; _showModal = true; }
+    private void CloseModal() { _showModal = false; _editItem = new(); }
+
+    private async Task SaveItem()
+    {
+        if (_form == null) return;
+        await _form.Validate();
+        if (!_formIsValid) return;
+        _isSaving = true; StateHasChanged();
+        try
+        {
+            if (_isEditMode)
+            {
+                var r = await TenantMasterDataService.UpdateItemAsync(_selectedProductId, _selectedEntityCode, _editItem.Id, new UpdateTenantMasterDataItemDto { ItemId = _editItem.Id, FieldValues = _editItem.FieldValues });
+                if (r != null) { Snackbar.Add("Updated", Severity.Success); await LoadDataItemsAsync(); CloseModal(); }
+                else Snackbar.Add("Update failed", Severity.Error);
+            }
+            else
+            {
+                var r = await TenantMasterDataService.AddItemAsync(_selectedProductId, new AddTenantMasterDataItemDto { MasterDataDefId = _selectedMasterDataDefId, EntityCode = _selectedEntityCode, FieldValues = _editItem.FieldValues });
+                if (r != null) { Snackbar.Add("Added", Severity.Success); await LoadDataItemsAsync(); CloseModal(); }
+                else Snackbar.Add("Add failed", Severity.Error);
+            }
+        }
+        catch (Exception ex) { Snackbar.Add($"Error: {ex.Message}", Severity.Error); }
+        finally { _isSaving = false; StateHasChanged(); }
+    }
+
+    private T? GetFieldValue<T>(string code)
+    {
+        if (_editItem.FieldValues.TryGetValue(code, out var v) && v != null)
+        {
+            try { if (v is T t) return t; if (v is System.Text.Json.JsonElement j) return System.Text.Json.JsonSerializer.Deserialize<T>(j.GetRawText()); return (T)Convert.ChangeType(v, Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T)); } catch { return default; }
+        }
+        return default;
+    }
+    private void SetFieldValue(string code, object? v) => _editItem.FieldValues[code] = v;
+    private DateTime? GetFieldDateValue(string code) { var v = GetFieldValue<object>(code); if (v is DateTime d) return d; if (v is System.Text.Json.JsonElement j && j.TryGetDateTime(out var jd)) return jd; if (DateTime.TryParse(v?.ToString(), out var p)) return p; return null; }
+
+    // Models
+    public class SubscribedProductViewModel { public Guid ProductId { get; set; } public string ProductCode { get; set; } = ""; public string ProductName { get; set; } = ""; }
+    public class EditItemModel { public int Id { get; set; } public Dictionary<string, object?> FieldValues { get; set; } = new(); }
+    public class FieldNavGroup { public string Name { get; set; } = ""; public bool IsExpanded { get; set; } = true; public List<FieldNavItem> Items { get; set; } = new(); }
+    public class FieldNavItem { public string EntityCode { get; set; } = ""; public string EntityName { get; set; } = ""; }
+}

@@ -1,0 +1,12 @@
+/workspace/VideoCV/src/VideoCV.Shared/bin/Debug/net8.0/VideoCV.Shared.deps.json
+/workspace/VideoCV/src/VideoCV.Shared/bin/Debug/net8.0/VideoCV.Shared.dll
+/workspace/VideoCV/src/VideoCV.Shared/bin/Debug/net8.0/VideoCV.Shared.pdb
+/workspace/VideoCV/src/VideoCV.Shared/obj/Debug/net8.0/VideoCV.Shared.GeneratedMSBuildEditorConfig.editorconfig
+/workspace/VideoCV/src/VideoCV.Shared/obj/Debug/net8.0/VideoCV.Shared.AssemblyInfoInputs.cache
+/workspace/VideoCV/src/VideoCV.Shared/obj/Debug/net8.0/VideoCV.Shared.AssemblyInfo.cs
+/workspace/VideoCV/src/VideoCV.Shared/obj/Debug/net8.0/VideoCV.Shared.csproj.CoreCompileInputs.cache
+/workspace/VideoCV/src/VideoCV.Shared/obj/Debug/net8.0/VideoCV.Shared.sourcelink.json
+/workspace/VideoCV/src/VideoCV.Shared/obj/Debug/net8.0/VideoCV.Shared.dll
+/workspace/VideoCV/src/VideoCV.Shared/obj/Debug/net8.0/refint/VideoCV.Shared.dll
+/workspace/VideoCV/src/VideoCV.Shared/obj/Debug/net8.0/VideoCV.Shared.pdb
+/workspace/VideoCV/src/VideoCV.Shared/obj/Debug/net8.0/ref/VideoCV.Shared.dll

@@ -1,0 +1,61 @@
+{
+  "Files": [
+    {
+      "Id": "/workspace/VideoCV/src/VideoCV.Client/bin/Debug/net8.0/wwwroot/_framework/blazor.webassembly.js",
+      "PackagePath": "staticwebassets/_framework/blazor.webassembly.js"
+    },
+    {
+      "Id": "/workspace/VideoCV/src/VideoCV.Client/obj/Debug/net8.0/compressed/er74u2ykrk.gz",
+      "PackagePath": "staticwebassets/_framework/blazor.webassembly.js.gz"
+    },
+    {
+      "Id": "/workspace/VideoCV/src/VideoCV.Client/obj/Debug/net8.0/scopedcss/bundle/VideoCV.Client.styles.css",
+      "PackagePath": "staticwebassets/VideoCV.Client.styles.css"
+    },
+    {
+      "Id": "/workspace/VideoCV/src/VideoCV.Client/wwwroot/css/app.css",
+      "PackagePath": "staticwebassets/css/app.css"
+    },
+    {
+      "Id": "/workspace/VideoCV/src/VideoCV.Client/wwwroot/css/bootstrap/bootstrap.min.css",
+      "PackagePath": "staticwebassets/css/bootstrap/bootstrap.min.css"
+    },
+    {
+      "Id": "/workspace/VideoCV/src/VideoCV.Client/wwwroot/css/bootstrap/bootstrap.min.css.map",
+      "PackagePath": "staticwebassets/css/bootstrap/bootstrap.min.css.map"
+    },
+    {
+      "Id": "/workspace/VideoCV/src/VideoCV.Client/wwwroot/favicon.png",
+      "PackagePath": "staticwebassets/favicon.png"
+    },
+    {
+      "Id": "/workspace/VideoCV/src/VideoCV.Client/wwwroot/icon-192.png",
+      "PackagePath": "staticwebassets/icon-192.png"
+    },
+    {
+      "Id": "/workspace/VideoCV/src/VideoCV.Client/wwwroot/index.html",
+      "PackagePath": "staticwebassets/index.html"
+    },
+    {
+      "Id": "/workspace/VideoCV/src/VideoCV.Client/wwwroot/sample-data/weather.json",
+      "PackagePath": "staticwebassets/sample-data/weather.json"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.VideoCV.Client.Microsoft.AspNetCore.StaticWebAssets.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssets.props"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.build.VideoCV.Client.props",
+      "PackagePath": "build\\VideoCV.Client.props"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.buildMultiTargeting.VideoCV.Client.props",
+      "PackagePath": "buildMultiTargeting\\VideoCV.Client.props"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.buildTransitive.VideoCV.Client.props",
+      "PackagePath": "buildTransitive\\VideoCV.Client.props"
+    }
+  ],
+  "ElementsToRemove": []
+}

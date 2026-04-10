@@ -1,0 +1,234 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net">
+  <diagram name="Role Template Architecture" id="role-template">
+    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2400" pageHeight="1800" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- TITLE -->
+        <mxCell id="t1" value="AGOne Multi-Tenant Role &amp; Permission System" style="text;html=1;fontSize=26;fontStyle=1;align=center;fillColor=none;strokeColor=none;fontColor=#0f172a;" vertex="1" parent="1">
+          <mxGeometry x="600" y="20" width="700" height="35" as="geometry"/>
+        </mxCell>
+        <mxCell id="t2" value="Role Template Pattern — Tenants customize names, backend identifies by SystemCode" style="text;html=1;fontSize=14;align=center;fillColor=none;strokeColor=none;fontColor=#64748b;" vertex="1" parent="1">
+          <mxGeometry x="500" y="55" width="900" height="22" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- SECTION 1: ROLE TEMPLATES (Platform-defined blueprints)        -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <mxCell id="tmpl-bg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#3b82f6;strokeWidth=2;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="100" width="2320" height="340" as="geometry"/>
+        </mxCell>
+        <mxCell id="tmpl-title" value="ROLE TEMPLATES (Platform-Level — Defined by AGOne, Immutable by Tenants)" style="text;html=1;fontSize=17;fontStyle=1;align=left;fillColor=none;strokeColor=none;fontColor=#1d4ed8;" vertex="1" parent="1">
+          <mxGeometry x="60" y="110" width="700" height="25" as="geometry"/>
+        </mxCell>
+        <mxCell id="tmpl-desc" value="&lt;font style='font-size:12px'&gt;Each template has a &lt;b&gt;SystemCode&lt;/b&gt; (never changes) + default permissions.&lt;br&gt;Tenants create instances from these templates. They can rename the role but the SystemCode stays.&lt;br&gt;Backend always checks &lt;b&gt;SystemCode&lt;/b&gt;, never the display name.&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fefce8;strokeColor=#fde68a;align=left;spacingLeft=12;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="60" y="140" width="700" height="65" as="geometry"/>
+        </mxCell>
+
+        <!-- Platform role templates -->
+        <mxCell id="tmpl-plat-bg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#93c5fd;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="60" y="220" width="520" height="200" as="geometry"/>
+        </mxCell>
+        <mxCell id="tmpl-plat-title" value="Platform Role Templates (ProductId = NULL)" style="text;html=1;fontSize=13;fontStyle=1;align=left;fillColor=none;strokeColor=none;fontColor=#1d4ed8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="225" width="400" height="20" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="tpl1" value="&lt;b&gt;TENANT_ADMIN&lt;/b&gt; 🔒&lt;br&gt;&lt;font style='font-size:10px' color='#64748b'&gt;Default name: &quot;Tenant Admin&quot;&lt;br&gt;Full tenant management access&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#3b82f6;fontSize=12;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="80" y="255" width="230" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="tpl2" value="&lt;b&gt;MANAGER&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px' color='#64748b'&gt;Default name: &quot;Manager&quot;&lt;br&gt;Team management, approvals&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#3b82f6;fontSize=12;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="80" y="320" width="230" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="tpl3" value="&lt;b&gt;EMPLOYEE&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px' color='#64748b'&gt;Default name: &quot;Employee&quot;&lt;br&gt;Basic self-service access&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#3b82f6;fontSize=12;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="80" y="385" width="230" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="tpl4" value="&lt;b&gt;PRODUCT_ADMIN&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px' color='#64748b'&gt;Default name: &quot;Product Admin&quot;&lt;br&gt;Admin for specific product&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#3b82f6;fontSize=12;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="330" y="255" width="230" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="tpl5" value="&lt;b&gt;HR_OFFICER&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px' color='#64748b'&gt;Default name: &quot;HR Officer&quot;&lt;br&gt;Employee data, leave, payroll&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#3b82f6;fontSize=12;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="330" y="320" width="230" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="tpl6" value="&lt;b&gt;FINANCE&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px' color='#64748b'&gt;Default name: &quot;Finance&quot;&lt;br&gt;Billing, invoices, reports&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#3b82f6;fontSize=12;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="330" y="385" width="230" height="55" as="geometry"/>
+        </mxCell>
+
+        <!-- Product-specific templates -->
+        <mxCell id="tmpl-prod-bg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#c4b5fd;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="620" y="220" width="1720" height="200" as="geometry"/>
+        </mxCell>
+        <mxCell id="tmpl-prod-title" value="Product-Specific Role Templates (ProductId = {guid})" style="text;html=1;fontSize=13;fontStyle=1;align=left;fillColor=none;strokeColor=none;fontColor=#7c3aed;" vertex="1" parent="1">
+          <mxGeometry x="630" y="225" width="500" height="20" as="geometry"/>
+        </mxCell>
+
+        <!-- Work -->
+        <mxCell id="w-hdr" value="&lt;b&gt;AG ONE Work&lt;/b&gt;" style="text;html=1;fontSize=12;fontStyle=1;fillColor=none;strokeColor=none;fontColor=#7c3aed;" vertex="1" parent="1">
+          <mxGeometry x="640" y="250" width="120" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="w1" value="WORK_IT_SUPPORT" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#8b5cf6;fontSize=11;arcSize=14;" vertex="1" parent="1">
+          <mxGeometry x="640" y="272" width="160" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="w2" value="WORK_L_AND_D" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#8b5cf6;fontSize=11;arcSize=14;" vertex="1" parent="1">
+          <mxGeometry x="640" y="308" width="160" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="w3" value="WORK_PAYROLL" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#8b5cf6;fontSize=11;arcSize=14;" vertex="1" parent="1">
+          <mxGeometry x="640" y="344" width="160" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="w4" value="WORK_ATTENDANCE" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#8b5cf6;fontSize=11;arcSize=14;" vertex="1" parent="1">
+          <mxGeometry x="640" y="380" width="160" height="30" as="geometry"/>
+        </mxCell>
+
+        <!-- Safe -->
+        <mxCell id="s-hdr" value="&lt;b&gt;AG ONE Safe&lt;/b&gt;" style="text;html=1;fontSize=12;fontStyle=1;fillColor=none;strokeColor=none;fontColor=#7c3aed;" vertex="1" parent="1">
+          <mxGeometry x="840" y="250" width="120" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="s1" value="SAFE_COMPLIANCE" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#8b5cf6;fontSize=11;arcSize=14;" vertex="1" parent="1">
+          <mxGeometry x="840" y="272" width="160" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="s2" value="SAFE_AUDITOR" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#8b5cf6;fontSize=11;arcSize=14;" vertex="1" parent="1">
+          <mxGeometry x="840" y="308" width="160" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="s3" value="SAFE_INCIDENT_MGR" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#8b5cf6;fontSize=11;arcSize=14;" vertex="1" parent="1">
+          <mxGeometry x="840" y="344" width="160" height="30" as="geometry"/>
+        </mxCell>
+
+        <!-- Learn -->
+        <mxCell id="l-hdr" value="&lt;b&gt;AG ONE Learn&lt;/b&gt;" style="text;html=1;fontSize=12;fontStyle=1;fillColor=none;strokeColor=none;fontColor=#7c3aed;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="250" width="120" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="l1" value="LEARN_INSTRUCTOR" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#8b5cf6;fontSize=11;arcSize=14;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="272" width="160" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="l2" value="LEARN_CONTENT_ADMIN" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#8b5cf6;fontSize=11;arcSize=14;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="308" width="160" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="l3" value="LEARN_LEARNER" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#8b5cf6;fontSize=11;arcSize=14;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="344" width="160" height="30" as="geometry"/>
+        </mxCell>
+
+        <!-- Pulse -->
+        <mxCell id="p-hdr" value="&lt;b&gt;AG ONE Pulse&lt;/b&gt;" style="text;html=1;fontSize=12;fontStyle=1;fillColor=none;strokeColor=none;fontColor=#7c3aed;" vertex="1" parent="1">
+          <mxGeometry x="1240" y="250" width="120" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="p1" value="PULSE_SURVEY_ADMIN" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#8b5cf6;fontSize=11;arcSize=14;" vertex="1" parent="1">
+          <mxGeometry x="1240" y="272" width="170" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="p2" value="PULSE_RESPONDENT" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#8b5cf6;fontSize=11;arcSize=14;" vertex="1" parent="1">
+          <mxGeometry x="1240" y="308" width="170" height="30" as="geometry"/>
+        </mxCell>
+
+        <!-- Spot -->
+        <mxCell id="sp-hdr" value="&lt;b&gt;AG ONE Spot&lt;/b&gt;" style="text;html=1;fontSize=12;fontStyle=1;fillColor=none;strokeColor=none;fontColor=#7c3aed;" vertex="1" parent="1">
+          <mxGeometry x="1450" y="250" width="120" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="sp1" value="SPOT_CITY_ADMIN" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#8b5cf6;fontSize=11;arcSize=14;" vertex="1" parent="1">
+          <mxGeometry x="1450" y="272" width="160" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="sp2" value="SPOT_FIELD_OFFICER" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#8b5cf6;fontSize=11;arcSize=14;" vertex="1" parent="1">
+          <mxGeometry x="1450" y="308" width="160" height="30" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- SECTION 2: TENANT ROLE INSTANCES                               -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <mxCell id="inst-bg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fefce8;strokeColor=#fbbf24;strokeWidth=2;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="470" width="2320" height="360" as="geometry"/>
+        </mxCell>
+        <mxCell id="inst-title" value="TENANT ROLE INSTANCES (Each tenant customizes names — backend uses SystemCode)" style="text;html=1;fontSize=17;fontStyle=1;align=left;fillColor=none;strokeColor=none;fontColor=#92400e;" vertex="1" parent="1">
+          <mxGeometry x="60" y="480" width="800" height="25" as="geometry"/>
+        </mxCell>
+
+        <!-- Tenant A -->
+        <mxCell id="ta-bg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#f59e0b;arcSize=8;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="60" y="520" width="700" height="290" as="geometry"/>
+        </mxCell>
+        <mxCell id="ta-title" value="Tenant A — Acme Corp (they renamed everything)" style="text;html=1;fontSize=14;fontStyle=1;align=left;fillColor=none;strokeColor=none;fontColor=#92400e;" vertex="1" parent="1">
+          <mxGeometry x="80" y="528" width="500" height="20" as="geometry"/>
+        </mxCell>
+
+        <!-- Tenant A table header -->
+        <mxCell id="ta-th" value="&lt;table style='font-size:12px;border-collapse:collapse;width:100%'&gt;&lt;tr style='background:#fef3c7;font-weight:bold'&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a'&gt;Tenant Display Name&lt;/td&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a'&gt;SystemCode (immutable)&lt;/td&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a'&gt;Product&lt;/td&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a'&gt;IsDefault&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a'&gt;&lt;b&gt;Company Administrator&lt;/b&gt;&lt;/td&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a;font-family:monospace;color:#dc2626'&gt;TENANT_ADMIN&lt;/td&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a;color:#64748b'&gt;Platform&lt;/td&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a'&gt;✅ Yes&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a'&gt;&lt;b&gt;Department Head&lt;/b&gt;&lt;/td&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a;font-family:monospace;color:#dc2626'&gt;MANAGER&lt;/td&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a;color:#64748b'&gt;Platform&lt;/td&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a'&gt;✅ Yes&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a'&gt;&lt;b&gt;Staff Member&lt;/b&gt;&lt;/td&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a;font-family:monospace;color:#dc2626'&gt;EMPLOYEE&lt;/td&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a;color:#64748b'&gt;Platform&lt;/td&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a'&gt;✅ Yes&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a'&gt;&lt;b&gt;People Operations Lead&lt;/b&gt;&lt;/td&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a;font-family:monospace;color:#dc2626'&gt;HR_OFFICER&lt;/td&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a;color:#8b5cf6'&gt;AG ONE Work&lt;/td&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a'&gt;✅ Yes&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a'&gt;&lt;b&gt;Training Coordinator&lt;/b&gt; &lt;font color='#16a34a'&gt;(custom)&lt;/font&gt;&lt;/td&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a;font-family:monospace;color:#059669'&gt;CUSTOM_TRAINING_COORD&lt;/td&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a;color:#8b5cf6'&gt;AG ONE Learn&lt;/td&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a'&gt;❌ No&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#fde68a;arcSize=6;overflow=fill;" vertex="1" parent="1">
+          <mxGeometry x="80" y="555" width="660" height="240" as="geometry"/>
+        </mxCell>
+
+        <!-- Tenant B -->
+        <mxCell id="tb-bg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#f59e0b;arcSize=8;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="800" y="520" width="700" height="290" as="geometry"/>
+        </mxCell>
+        <mxCell id="tb-title" value="Tenant B — TechCorp (kept default names)" style="text;html=1;fontSize=14;fontStyle=1;align=left;fillColor=none;strokeColor=none;fontColor=#92400e;" vertex="1" parent="1">
+          <mxGeometry x="820" y="528" width="500" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="tb-th" value="&lt;table style='font-size:12px;border-collapse:collapse;width:100%'&gt;&lt;tr style='background:#fef3c7;font-weight:bold'&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a'&gt;Tenant Display Name&lt;/td&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a'&gt;SystemCode&lt;/td&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a'&gt;Product&lt;/td&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a'&gt;IsDefault&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a'&gt;&lt;b&gt;Tenant Admin&lt;/b&gt;&lt;/td&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a;font-family:monospace;color:#dc2626'&gt;TENANT_ADMIN&lt;/td&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a;color:#64748b'&gt;Platform&lt;/td&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a'&gt;✅ Yes&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a'&gt;&lt;b&gt;Manager&lt;/b&gt;&lt;/td&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a;font-family:monospace;color:#dc2626'&gt;MANAGER&lt;/td&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a;color:#64748b'&gt;Platform&lt;/td&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a'&gt;✅ Yes&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a'&gt;&lt;b&gt;Employee&lt;/b&gt;&lt;/td&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a;font-family:monospace;color:#dc2626'&gt;EMPLOYEE&lt;/td&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a;color:#64748b'&gt;Platform&lt;/td&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a'&gt;✅ Yes&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a'&gt;&lt;b&gt;Compliance Officer&lt;/b&gt;&lt;/td&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a;font-family:monospace;color:#dc2626'&gt;SAFE_COMPLIANCE&lt;/td&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a;color:#8b5cf6'&gt;AG ONE Safe&lt;/td&gt;&lt;td style='padding:6px 10px;border:1px solid #fde68a'&gt;✅ Yes&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#fde68a;arcSize=6;overflow=fill;" vertex="1" parent="1">
+          <mxGeometry x="820" y="555" width="660" height="200" as="geometry"/>
+        </mxCell>
+
+        <!-- Key insight callout -->
+        <mxCell id="insight" value="&lt;b style='font-size:14px;color:#dc2626'&gt;KEY INSIGHT&lt;/b&gt;&lt;br&gt;&lt;br&gt;&lt;font style='font-size:12px'&gt;Tenant A calls it &lt;b&gt;&quot;Department Head&quot;&lt;/b&gt;&lt;br&gt;Tenant B calls it &lt;b&gt;&quot;Manager&quot;&lt;/b&gt;&lt;br&gt;&lt;br&gt;Both have SystemCode = &lt;b style='font-family:monospace;color:#dc2626'&gt;MANAGER&lt;/b&gt;&lt;br&gt;&lt;br&gt;Backend code does:&lt;br&gt;&lt;code style='background:#f1f5f9;padding:2px 6px;border-radius:4px'&gt;if (role.SystemCode == &quot;MANAGER&quot;)&lt;/code&gt;&lt;br&gt;&lt;br&gt;Never:&lt;br&gt;&lt;code style='background:#fef2f2;padding:2px 6px;border-radius:4px;text-decoration:line-through'&gt;if (role.Name == &quot;Department Head&quot;)&lt;/code&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fef2f2;strokeColor=#f87171;strokeWidth=2;arcSize=10;align=left;spacingLeft=14;spacingRight=14;" vertex="1" parent="1">
+          <mxGeometry x="1560" y="490" width="360" height="230" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- SECTION 3: DATABASE SCHEMA                                     -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <mxCell id="db-bg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#94a3b8;strokeWidth=2;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="860" width="2320" height="380" as="geometry"/>
+        </mxCell>
+        <mxCell id="db-title" value="DATABASE SCHEMA" style="text;html=1;fontSize=17;fontStyle=1;align=left;fillColor=none;strokeColor=none;fontColor=#475569;" vertex="1" parent="1">
+          <mxGeometry x="60" y="870" width="300" height="25" as="geometry"/>
+        </mxCell>
+
+        <!-- RoleTemplate table -->
+        <mxCell id="tbl-template" value="&lt;table style='font-size:11px;border-collapse:collapse;width:100%'&gt;&lt;tr style='background:#dbeafe'&gt;&lt;td colspan='2' style='padding:8px;font-weight:bold;font-size:14px;border:1px solid #93c5fd'&gt;🔵 RoleTemplates&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0;font-weight:bold'&gt;Id&lt;/td&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;PK, Guid&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0;font-weight:bold;color:#dc2626'&gt;SystemCode&lt;/td&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;string, unique, immutable&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;DefaultName&lt;/td&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;string&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;Description&lt;/td&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;string?&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;ProductId&lt;/td&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;FK?, null=platform&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;IsSystemRole&lt;/td&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;bool (can't delete)&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#3b82f6;strokeWidth=2;arcSize=8;overflow=fill;" vertex="1" parent="1">
+          <mxGeometry x="80" y="910" width="280" height="200" as="geometry"/>
+        </mxCell>
+
+        <!-- TenantRole table (the instance) -->
+        <mxCell id="tbl-tenantrole" value="&lt;table style='font-size:11px;border-collapse:collapse;width:100%'&gt;&lt;tr style='background:#fef3c7'&gt;&lt;td colspan='2' style='padding:8px;font-weight:bold;font-size:14px;border:1px solid #fde68a'&gt;🟡 Roles (Tenant Instance) ⭐&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0;font-weight:bold'&gt;Id&lt;/td&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;PK, Guid&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0;font-weight:bold;color:#dc2626'&gt;RoleTemplateId&lt;/td&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;FK? → RoleTemplates (null for custom)&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0;font-weight:bold;color:#dc2626'&gt;SystemCode&lt;/td&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;copied from template or custom&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0;font-weight:bold;color:#16a34a'&gt;Name (editable!)&lt;/td&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;tenant's custom display name&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;DisplayName&lt;/td&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;string&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;TenantId&lt;/td&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;FK → Tenants&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;ProductId&lt;/td&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;FK? → Products&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;IsDefault&lt;/td&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;bool (auto-created from template)&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;IsCustom&lt;/td&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;bool (tenant created from scratch)&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#f59e0b;strokeWidth=2;arcSize=8;overflow=fill;" vertex="1" parent="1">
+          <mxGeometry x="420" y="900" width="360" height="310" as="geometry"/>
+        </mxCell>
+
+        <!-- UserRoles table -->
+        <mxCell id="tbl-userrole2" value="&lt;table style='font-size:11px;border-collapse:collapse;width:100%'&gt;&lt;tr style='background:#fef2f2'&gt;&lt;td colspan='2' style='padding:8px;font-weight:bold;font-size:14px;border:1px solid #fecaca'&gt;🔴 UserRoles&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0;font-weight:bold'&gt;Id&lt;/td&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;PK&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;UserId&lt;/td&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;FK → Users&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;RoleId&lt;/td&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;FK → Roles&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;TenantId&lt;/td&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;FK → Tenants&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;ProductId&lt;/td&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;FK? → Products&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0;font-weight:bold;color:#dc2626'&gt;Priority&lt;/td&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;int (lower = higher)&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#dc2626;strokeWidth=2;arcSize=8;overflow=fill;" vertex="1" parent="1">
+          <mxGeometry x="840" y="910" width="280" height="220" as="geometry"/>
+        </mxCell>
+
+        <!-- RolePermissions -->
+        <mxCell id="tbl-roleperm2" value="&lt;table style='font-size:11px;border-collapse:collapse;width:100%'&gt;&lt;tr style='background:#f0fdf4'&gt;&lt;td colspan='2' style='padding:8px;font-weight:bold;font-size:14px;border:1px solid #86efac'&gt;🟢 RolePermissions&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;RoleId&lt;/td&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;FK → Roles&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;PermissionId&lt;/td&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;FK → Permissions&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#22c55e;strokeWidth=2;arcSize=8;overflow=fill;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="910" width="260" height="110" as="geometry"/>
+        </mxCell>
+
+        <!-- Permissions -->
+        <mxCell id="tbl-perm2" value="&lt;table style='font-size:11px;border-collapse:collapse;width:100%'&gt;&lt;tr style='background:#f0fdf4'&gt;&lt;td colspan='2' style='padding:8px;font-weight:bold;font-size:14px;border:1px solid #86efac'&gt;🟢 Permissions&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0;font-weight:bold'&gt;Id&lt;/td&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;PK&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;Name&lt;/td&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;unique (e.g. users:manage)&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;ProductId&lt;/td&gt;&lt;td style='padding:5px 8px;border:1px solid #e2e8f0'&gt;FK? → Products&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#22c55e;strokeWidth=2;arcSize=8;overflow=fill;" vertex="1" parent="1">
+          <mxGeometry x="1500" y="910" width="260" height="140" as="geometry"/>
+        </mxCell>
+
+        <!-- Arrows between tables -->
+        <mxCell id="arr1" value="" style="endArrow=ERmany;startArrow=ERone;html=1;strokeWidth=2;strokeColor=#3b82f6;" edge="1" parent="1" source="tbl-template" target="tbl-tenantrole">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="arr2" value="" style="endArrow=ERmany;startArrow=ERone;html=1;strokeWidth=2;strokeColor=#f59e0b;" edge="1" parent="1" source="tbl-tenantrole" target="tbl-userrole2">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="arr3" value="" style="endArrow=ERmany;startArrow=ERone;html=1;strokeWidth=2;strokeColor=#f59e0b;" edge="1" parent="1" source="tbl-tenantrole" target="tbl-roleperm2">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="arr4" value="" style="endArrow=ERmany;startArrow=ERone;html=1;strokeWidth=2;strokeColor=#22c55e;" edge="1" parent="1" source="tbl-perm2" target="tbl-roleperm2">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Flow explanation -->
+        <mxCell id="flow-bg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfdf5;strokeColor=#059669;strokeWidth=2;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="1820" y="900" width="520" height="320" as="geometry"/>
+        </mxCell>
+        <mxCell id="flow-title" value="HOW IT WORKS" style="text;html=1;fontSize=16;fontStyle=1;align=left;fillColor=none;strokeColor=none;fontColor=#059669;" vertex="1" parent="1">
+          <mxGeometry x="1840" y="910" width="200" height="25" as="geometry"/>
+        </mxCell>
+        <mxCell id="flow-text" value="&lt;font style='font-size:12px'&gt;&lt;b&gt;1. Platform seeds RoleTemplates&lt;/b&gt;&lt;br&gt;   TENANT_ADMIN, MANAGER, EMPLOYEE, HR_OFFICER...&lt;br&gt;&lt;br&gt;&lt;b&gt;2. Tenant onboards → auto-create Roles from templates&lt;/b&gt;&lt;br&gt;   Copy SystemCode + DefaultName → tenant's Roles table&lt;br&gt;   IsDefault = true, IsCustom = false&lt;br&gt;&lt;br&gt;&lt;b&gt;3. Tenant admin renames roles in UI&lt;/b&gt;&lt;br&gt;   &quot;Manager&quot; → &quot;Department Head&quot;&lt;br&gt;   SystemCode stays MANAGER (never changes)&lt;br&gt;&lt;br&gt;&lt;b&gt;4. Tenant admin creates custom roles&lt;/b&gt;&lt;br&gt;   RoleTemplateId = null, IsCustom = true&lt;br&gt;   SystemCode = CUSTOM_{tenant-chosen-code}&lt;br&gt;&lt;br&gt;&lt;b&gt;5. Backend always uses SystemCode&lt;/b&gt;&lt;br&gt;   JWT claim: role = MANAGER (not &quot;Department Head&quot;)&lt;br&gt;   [Authorize(Roles = &quot;TENANT_ADMIN,MANAGER&quot;)]&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;align=left;spacingLeft=12;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="1840" y="940" width="480" height="270" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
